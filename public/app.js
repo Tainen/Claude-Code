@@ -57,7 +57,7 @@ function renderAuth(mode = 'login') {
   box.append(
     el('p', { class: 'note' },
       mode === 'login'
-        ? 'VOCO 給与システム'
+        ? '株式会社VOCO給与管理システム'
         : '最初に登録したアカウントがオーナー（管理者）になります。')
   );
 
@@ -125,7 +125,7 @@ function renderApp() {
   app.replaceChildren();
   app.append(
     el('header', { class: 'appbar' },
-      el('h1', {}, '株式会社勃興（VOCO）給与システム'),
+      el('h1', {}, '株式会社VOCO給与管理システム'),
       el('div', { class: 'who' },
         `${me.name} さん `,
         el('span', { class: 'badge' }, me.role === 'owner' ? 'オーナー' : 'メンバー'),
@@ -533,91 +533,239 @@ async function renderRpoTab(content) {
 
 // ---------- イベント受注 ----------
 
+function svgEl(tag, attrs = {}, ...children) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  for (const child of children.flat()) {
+    if (child == null) continue;
+    node.append(child.nodeType ? child : document.createTextNode(child));
+  }
+  return node;
+}
+
+// 月別受注枠数の棒グラフ（受注月ベース・1年分）
+function monthlySlotsChart(orders, year) {
+  const counts = Array(12).fill(0);
+  for (const o of orders) {
+    if (o.orderYear === year) counts[o.orderMonth - 1] += o.slots;
+  }
+  const W = 720, H = 240;
+  const m = { top: 22, right: 8, bottom: 28, left: 36 };
+  const plotW = W - m.left - m.right;
+  const plotH = H - m.top - m.bottom;
+  const rawMax = Math.max(...counts, 1);
+  const step = rawMax <= 4 ? 1 : Math.ceil(rawMax / 4);
+  const yMax = step * 4 >= rawMax ? step * 4 : step * 5;
+
+  const svg = svgEl('svg', {
+    viewBox: `0 0 ${W} ${H}`,
+    role: 'img',
+    'aria-label': `${year}年の月別受注枠数`,
+  });
+
+  // 横グリッド線と目盛り（控えめな色）
+  for (let i = 0; i <= 4; i++) {
+    const value = (yMax / 4) * i;
+    const y = m.top + plotH - (plotH * value) / yMax;
+    svg.append(svgEl('line', {
+      x1: m.left, x2: m.left + plotW, y1: y, y2: y,
+      stroke: i === 0 ? '#d1d5db' : '#eceef1', 'stroke-width': 1,
+    }));
+    svg.append(svgEl('text', {
+      x: m.left - 6, y: y + 4, 'text-anchor': 'end',
+      'font-size': 11, fill: '#6b7280',
+    }, String(value)));
+  }
+
+  const slotW = plotW / 12;
+  const barW = Math.min(34, slotW * 0.62);
+  for (let i = 0; i < 12; i++) {
+    const cx = m.left + slotW * i + slotW / 2;
+    const x = cx - barW / 2;
+    const barH = (plotH * counts[i]) / yMax;
+    const topY = m.top + plotH - barH;
+    const baseY = m.top + plotH;
+    if (counts[i] > 0) {
+      const r = Math.min(4, barH);
+      const bar = svgEl('path', {
+        d: `M${x},${baseY} L${x},${topY + r} Q${x},${topY} ${x + r},${topY} ` +
+          `L${x + barW - r},${topY} Q${x + barW},${topY} ${x + barW},${topY + r} L${x + barW},${baseY} Z`,
+        fill: '#7c3aed',
+      });
+      bar.append(svgEl('title', {}, `${year}年${i + 1}月: ${counts[i]}枠`));
+      svg.append(bar);
+      // 値ラベル（0の月には付けない）
+      svg.append(svgEl('text', {
+        x: cx, y: topY - 6, 'text-anchor': 'middle',
+        'font-size': 11, fill: '#6b7280',
+      }, String(counts[i])));
+    }
+    svg.append(svgEl('text', {
+      x: cx, y: m.top + plotH + 18, 'text-anchor': 'middle',
+      'font-size': 11, fill: '#6b7280',
+    }, `${i + 1}月`));
+  }
+  return svg;
+}
+
 async function renderOrdersTab(content) {
-  const card = el('div', { class: 'card' });
-  card.append(el('h2', {}, '採用イベントの受注（自分の実績）'));
-  card.append(el('p', { class: 'note' },
+  const now = new Date();
+
+  // ---- 受注の一括登録 ----
+  const regCard = el('div', { class: 'card' });
+  regCard.append(el('h2', {}, '採用イベントの受注登録（自分の実績）'));
+  regCard.append(el('p', { class: 'note' },
+    '受注したイベントにチェックを入れ、枠数を入力してまとめて登録できます。' +
     '同じ受注月の合計枠数で単価が決まります: 1〜5枠目 2万円 / 6〜10枠目 4万円 / 11枠目以降 6万円。' +
     '単価はイベント開催日が早い順に割り当てられ、開催月の翌月入金後、直近の支給月（1月・4月・7月・10月）に反映されます。'));
 
-  const now = new Date();
-  const eventSel = el('select');
-  const slots = el('input', { type: 'number', min: 1, step: 1, value: 1 });
   const yearSel = el('select');
   yearOptions(yearSel, now.getFullYear() - 2, now.getFullYear() + 2, now.getFullYear());
   const monthSel = el('select');
   monthOptions(monthSel, now.getMonth() + 1);
+  regCard.append(el('div', { class: 'bulk-bar' },
+    el('div', { class: 'field' }, el('label', {}, '受注年'), yearSel),
+    el('div', { class: 'field' }, el('label', {}, '受注月'), monthSel)));
 
-  card.append(
-    el('form', {
-      class: 'inline',
-      onsubmit: async (e) => {
-        e.preventDefault();
-        try {
-          await api('/api/orders', {
-            method: 'POST',
-            body: JSON.stringify({
-              eventId: Number(eventSel.value),
-              slots: Number(slots.value),
-              orderYear: Number(yearSel.value),
-              orderMonth: Number(monthSel.value),
-            }),
-          });
-          renderApp();
-        } catch (err) {
-          showMessage(card, err.message, 'error');
-        }
-      },
-    },
-      el('div', { class: 'field' }, el('label', {}, 'イベント'), eventSel),
-      el('div', { class: 'field' }, el('label', {}, '枠数'), slots),
-      el('div', { class: 'field' }, el('label', {}, '受注年'), yearSel),
-      el('div', { class: 'field' }, el('label', {}, '受注月'), monthSel),
-      el('button', { type: 'submit' }, '登録'))
-  );
+  const eventArea = el('div');
+  const registerBtn = el('button', { disabled: '' }, '選択したイベントをまとめて登録');
+  regCard.append(eventArea, el('div', { style: 'margin-top:12px;' }, registerBtn));
 
-  const list = el('div');
-  card.append(el('h3', {}, '受注一覧'), list);
-  content.append(card);
+  // ---- 受注一覧（一括削除） ----
+  const listCard = el('div', { class: 'card' });
+  listCard.append(el('h2', {}, '受注一覧'));
+  const listArea = el('div');
+  const deleteBtn = el('button', { class: 'danger', disabled: '' }, '選択した受注を削除');
+  listCard.append(listArea);
+
+  // ---- 月別受注グラフ ----
+  const chartCard = el('div', { class: 'card' });
+  chartCard.append(el('h2', {}, '月別受注枠数'));
+  chartCard.append(el('p', { class: 'note' }, '受注月ベースで、各月に登録した枠数の合計を表示します。'));
+  const chartYearSel = el('select');
+  const chartArea = el('div', { class: 'chart-box' });
+  chartCard.append(
+    el('div', { class: 'bulk-bar' }, el('div', { class: 'field' }, el('label', {}, '年'), chartYearSel)),
+    chartArea);
+
+  content.append(regCard, listCard, chartCard);
 
   try {
     const [events, orders] = await Promise.all([api('/api/events'), api('/api/orders')]);
+
+    // --- 登録テーブル: チェックボックス + 枠数入力 ---
     if (events.length === 0) {
-      eventSel.append(el('option', { value: '' }, 'イベント未登録（オーナーに依頼してください）'));
+      eventArea.append(el('p', { class: 'note' }, 'イベントが未登録です（オーナーに登録を依頼してください）。'));
     } else {
+      const rows = []; // { checkbox, slotsInput, event }
+      const updateRegisterBtn = () => {
+        const anyChecked = rows.some((r) => r.checkbox.checked);
+        if (anyChecked) registerBtn.removeAttribute('disabled');
+        else registerBtn.setAttribute('disabled', '');
+      };
+      const tbody = el('tbody');
       for (const ev of events) {
-        eventSel.append(el('option', { value: ev.id }, `${ev.eventDate} ${ev.name}`));
+        const checkbox = el('input', { type: 'checkbox', onchange: () => {
+          slotsInput.disabled = !checkbox.checked;
+          updateRegisterBtn();
+        } });
+        const slotsInput = el('input', { type: 'number', min: 1, step: 1, value: 1, style: 'width:80px;' });
+        slotsInput.disabled = true;
+        rows.push({ checkbox, slotsInput, event: ev });
+        tbody.append(el('tr', {},
+          el('td', {}, checkbox),
+          el('td', {}, ev.eventDate),
+          el('td', {}, ev.name),
+          el('td', {}, slotsInput)));
       }
+      eventArea.append(el('div', { class: 'table-scroll' },
+        el('table', {},
+          el('thead', {}, el('tr', {},
+            el('th', {}, '選択'), el('th', {}, '開催日'), el('th', {}, 'イベント名'), el('th', {}, '枠数'))),
+          tbody)));
+
+      registerBtn.addEventListener('click', async () => {
+        const items = rows
+          .filter((r) => r.checkbox.checked)
+          .map((r) => ({ eventId: r.event.id, slots: Number(r.slotsInput.value) }));
+        try {
+          const result = await api('/api/orders/bulk', {
+            method: 'POST',
+            body: JSON.stringify({
+              orderYear: Number(yearSel.value),
+              orderMonth: Number(monthSel.value),
+              items,
+            }),
+          });
+          showMessage(regCard, `${result.count}件の受注を登録しました`, 'ok');
+          renderApp();
+        } catch (err) {
+          showMessage(regCard, err.message, 'error');
+        }
+      });
     }
+
+    // --- 受注一覧: チェックボックス + 一括削除 ---
     if (orders.length === 0) {
-      list.append(el('p', { class: 'note' }, '受注はまだ登録されていません。'));
+      listArea.append(el('p', { class: 'note' }, '受注はまだ登録されていません。'));
     } else {
+      const checks = [];
+      const updateDeleteBtn = () => {
+        const n = checks.filter((c) => c.checkbox.checked).length;
+        deleteBtn.textContent = n > 0 ? `選択した受注を削除（${n}件）` : '選択した受注を削除';
+        if (n > 0) deleteBtn.removeAttribute('disabled');
+        else deleteBtn.setAttribute('disabled', '');
+      };
+      const selectAll = el('input', { type: 'checkbox', onchange: () => {
+        for (const c of checks) c.checkbox.checked = selectAll.checked;
+        updateDeleteBtn();
+      } });
       const tbody = el('tbody');
       for (const o of orders) {
+        const checkbox = el('input', { type: 'checkbox', onchange: updateDeleteBtn });
+        checks.push({ checkbox, order: o });
         tbody.append(el('tr', {},
+          el('td', {}, checkbox),
           el('td', {}, o.eventName),
           el('td', {}, o.eventDate),
           el('td', {}, ym(o.orderYear, o.orderMonth)),
-          el('td', { class: 'num' }, `${o.slots}枠`),
-          el('td', {},
-            el('button', {
-              class: 'danger',
-              onclick: async () => {
-                if (!confirm('この受注を削除しますか？')) return;
-                await api(`/api/orders/${o.id}`, { method: 'DELETE' });
-                renderApp();
-              },
-            }, '削除'))));
+          el('td', { class: 'num' }, `${o.slots}枠`)));
       }
-      list.append(el('div', { class: 'table-wrap' },
-        el('table', {},
-          el('thead', {}, el('tr', {},
-            el('th', {}, 'イベント'), el('th', {}, '開催日'), el('th', {}, '受注月'),
-            el('th', { class: 'num' }, '枠数'), el('th', {}, ''))),
-          tbody)));
+      listArea.append(
+        el('div', { class: 'table-wrap' },
+          el('table', {},
+            el('thead', {}, el('tr', {},
+              el('th', {}, selectAll), el('th', {}, 'イベント'), el('th', {}, '開催日'),
+              el('th', {}, '受注月'), el('th', { class: 'num' }, '枠数'))),
+            tbody)),
+        el('div', { style: 'margin-top:12px;' }, deleteBtn));
+
+      deleteBtn.addEventListener('click', async () => {
+        const ids = checks.filter((c) => c.checkbox.checked).map((c) => c.order.id);
+        if (!confirm(`選択した${ids.length}件の受注を削除しますか？`)) return;
+        try {
+          await api('/api/orders/delete', { method: 'POST', body: JSON.stringify({ ids }) });
+          renderApp();
+        } catch (err) {
+          showMessage(listCard, err.message, 'error');
+        }
+      });
     }
+
+    // --- 月別グラフ ---
+    const years = [...new Set([...orders.map((o) => o.orderYear), now.getFullYear()])].sort();
+    for (const y of years) {
+      chartYearSel.append(el('option', {
+        value: y, ...(y === now.getFullYear() ? { selected: '' } : {}),
+      }, `${y}年`));
+    }
+    const drawChart = () => {
+      chartArea.replaceChildren(monthlySlotsChart(orders, Number(chartYearSel.value)));
+    };
+    chartYearSel.addEventListener('change', drawChart);
+    drawChart();
   } catch (err) {
-    showMessage(card, err.message, 'error');
+    showMessage(regCard, err.message, 'error');
   }
 }
 
