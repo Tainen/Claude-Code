@@ -9,6 +9,7 @@ const {
   setSetting,
   getRpoTierPercents,
   getRpoRoleShares,
+  generateSignupCode,
 } = require('./db');
 const auth = require('./auth');
 const calc = require('./calc');
@@ -23,15 +24,21 @@ function isValidYear(y) {
 function createApp(dbPath) {
   const db = createDb(dbPath);
   const app = express();
+  // Render/Railway 等のリバースプロキシ配下で req.secure を正しく判定するため
+  app.set('trust proxy', 1);
   app.use(express.json());
   app.use(auth.sessionMiddleware(db));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
+  // ホスティングサービスのヘルスチェック用
+  app.get('/healthz', (req, res) => res.json({ ok: true }));
+
   // ---------------- 認証 ----------------
 
-  // 最初に登録したアカウントがオーナーになる
+  // 最初に登録したアカウントがオーナーになる。
+  // 2人目以降は、オーナーが設定画面で確認できる「招待コード」が必要。
   app.post('/api/register', (req, res) => {
-    const { email, name, password } = req.body || {};
+    const { email, name, password, signupCode } = req.body || {};
     if (!email || !name || !password) {
       return res.status(400).json({ error: 'メールアドレス・氏名・パスワードは必須です' });
     }
@@ -40,6 +47,12 @@ function createApp(dbPath) {
     }
     const count = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
     const role = count === 0 ? 'owner' : 'member';
+    if (count > 0) {
+      const expected = getSetting(db, 'signup_code');
+      if (!expected || String(signupCode || '').trim() !== expected) {
+        return res.status(403).json({ error: '招待コードが正しくありません（オーナーに確認してください）' });
+      }
+    }
     let userId;
     try {
       const result = db
@@ -52,8 +65,12 @@ function createApp(dbPath) {
       }
       throw err;
     }
+    // オーナー登録時に招待コードを自動生成（設定画面で確認・変更できる）
+    if (role === 'owner' && !getSetting(db, 'signup_code')) {
+      setSetting(db, 'signup_code', generateSignupCode());
+    }
     const token = auth.createSession(db, userId);
-    auth.setSessionCookie(res, token);
+    auth.setSessionCookie(req, res, token);
     res.json({ id: userId, email, name, role });
   });
 
@@ -66,13 +83,13 @@ function createApp(dbPath) {
       return res.status(401).json({ error: 'メールアドレスまたはパスワードが正しくありません' });
     }
     const token = auth.createSession(db, user.id);
-    auth.setSessionCookie(res, token);
+    auth.setSessionCookie(req, res, token);
     res.json({ id: user.id, email: user.email, name: user.name, role: user.role });
   });
 
   app.post('/api/logout', (req, res) => {
     if (req.sessionToken) auth.destroySession(db, req.sessionToken);
-    auth.clearSessionCookie(res);
+    auth.clearSessionCookie(req, res);
     res.json({ ok: true });
   });
 
@@ -387,7 +404,12 @@ function createApp(dbPath) {
   }
 
   app.get('/api/settings', auth.requireAuth, (req, res) => {
-    res.json(settingsPayload());
+    const payload = settingsPayload();
+    // 招待コードはオーナーにのみ表示
+    if (req.user.role === 'owner') {
+      payload.signupCode = getSetting(db, 'signup_code') || '';
+    }
+    res.json(payload);
   });
 
   app.put('/api/settings', auth.requireOwner, (req, res) => {
@@ -405,10 +427,15 @@ function createApp(dbPath) {
         return res.status(400).json({ error: 'パーセンテージは0〜100の数値で入力してください' });
       }
     }
+    const signupCode = String(req.body?.signupCode ?? '').trim();
+    if (signupCode.length < 4) {
+      return res.status(400).json({ error: '招待コードは4文字以上にしてください' });
+    }
     for (const [bodyKey, settingKey] of keys) {
       setSetting(db, settingKey, Number(req.body[bodyKey]));
     }
-    res.json(settingsPayload());
+    setSetting(db, 'signup_code', signupCode);
+    res.json({ ...settingsPayload(), signupCode });
   });
 
   // ---------------- オーナー用（メンバー一覧・メンバー給与） ----------------

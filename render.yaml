@@ -1,0 +1,22 @@
+# Render (https://render.com) 用の設定ファイル。
+# Render のダッシュボードで「New +」→「Blueprint」からこのリポジトリを選ぶと、
+# この内容のまま Web サービスが作成され、公開 URL が発行される。
+#
+# 給与データ (SQLite) を消さないために永続ディスクを使用する。
+# 永続ディスクには有料プラン (Starter) が必要。
+services:
+  - type: web
+    name: voco-salary
+    runtime: node
+    plan: starter
+    region: singapore # 日本から最も近いリージョン
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: DB_PATH
+        value: /var/data/voco.sqlite
+    disk:
+      name: voco-data
+      mountPath: /var/data
+      sizeGB: 1

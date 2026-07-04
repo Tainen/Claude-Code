@@ -103,7 +103,18 @@ function createDb(filePath) {
     insertSetting.run(key, value);
   }
 
+  // 招待コード: 既にユーザーがいるのに未設定の場合（旧DBからの移行時）は自動生成する。
+  // 2人目以降のアカウント登録にはこのコードが必要（オーナーが設定画面で確認・変更できる）。
+  const userCount = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
+  if (userCount > 0 && !getSetting(db, 'signup_code')) {
+    setSetting(db, 'signup_code', generateSignupCode());
+  }
+
   return db;
+}
+
+function generateSignupCode() {
+  return require('node:crypto').randomBytes(4).toString('hex');
 }
 
 // 旧スキーマ（rpo_deals に user_id があり社員が案件を直接所有）からの移行。
@@ -170,5 +181,6 @@ module.exports = {
   setSetting,
   getRpoTierPercents,
   getRpoRoleShares,
+  generateSignupCode,
   DEFAULT_SETTINGS,
 };

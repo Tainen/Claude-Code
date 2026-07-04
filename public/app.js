@@ -64,13 +64,17 @@ function renderAuth(mode = 'login') {
   const email = el('input', { type: 'email', autocomplete: 'email' });
   const name = el('input', { type: 'text' });
   const password = el('input', { type: 'password', autocomplete: mode === 'login' ? 'current-password' : 'new-password' });
+  const signupCode = el('input', { type: 'text', autocomplete: 'off' });
 
   const form = el('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       try {
         const body = { email: email.value, password: password.value };
-        if (mode === 'register') body.name = name.value;
+        if (mode === 'register') {
+          body.name = name.value;
+          body.signupCode = signupCode.value;
+        }
         me = await api(mode === 'login' ? '/api/login' : '/api/register', {
           method: 'POST',
           body: JSON.stringify(body),
@@ -87,6 +91,11 @@ function renderAuth(mode = 'login') {
     form.append(el('div', { class: 'field' }, el('label', {}, '氏名'), name));
   }
   form.append(el('div', { class: 'field' }, el('label', {}, 'パスワード（8文字以上）'), password));
+  if (mode === 'register') {
+    form.append(el('div', { class: 'field' },
+      el('label', {}, '招待コード（オーナーから共有されたもの。最初のオーナー登録では不要）'),
+      signupCode));
+  }
   form.append(el('button', { type: 'submit' }, mode === 'login' ? 'ログイン' : '登録する'));
   box.append(form);
 
@@ -107,7 +116,7 @@ const TABS = [
   { id: 'rpo', label: 'RPO案件', render: renderRpoTab },
   { id: 'orders', label: 'イベント受注', render: renderOrdersTab },
   { id: 'events', label: 'イベント管理', render: renderEventsTab, ownerOnly: true },
-  { id: 'settings', label: 'RPO設定', render: renderSettingsTab, ownerOnly: true },
+  { id: 'settings', label: '設定', render: renderSettingsTab, ownerOnly: true },
   { id: 'members', label: 'メンバー給与', render: renderMembersTab, ownerOnly: true },
 ];
 let activeTab = 'salary';
@@ -715,7 +724,7 @@ async function renderEventsTab(content) {
 
 async function renderSettingsTab(content) {
   const card = el('div', { class: 'card' });
-  card.append(el('h2', {}, 'RPOインセンティブの設定（オーナー）'));
+  card.append(el('h2', {}, '設定（オーナー）'));
 
   const tierFields = [
     ['rpoTier1Percent', '〜100万円'],
@@ -733,11 +742,13 @@ async function renderSettingsTab(content) {
     inputs[key] = el('input', { type: 'number', min: 0, max: 100, step: 0.1 });
   }
 
+  const signupCodeInput = el('input', { type: 'text', autocomplete: 'off' });
+
   const form = el('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       try {
-        const body = {};
+        const body = { signupCode: signupCodeInput.value };
         for (const [key] of allFields) body[key] = Number(inputs[key].value);
         await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
         showMessage(card, '保存しました', 'ok');
@@ -757,12 +768,17 @@ async function renderSettingsTab(content) {
   }
 
   form.append(
-    el('h3', {}, '保有額帯ごとの率'),
+    el('h3', {}, 'RPO: 保有額帯ごとの率'),
     el('p', { class: 'note' }, '月間粗利の保有額帯ごとに、インセンティブとして支給するパーセンテージを設定します。'),
     tierRow,
-    el('h3', {}, '担当割合（メイン / サブ）'),
+    el('h3', {}, 'RPO: 担当割合（メイン / サブ）'),
     el('p', { class: 'note' }, '各案件のインセンティブを、メイン担当とサブ担当にどの割合で配分するかを設定します（初期値: メイン80% / サブ20%）。'),
     shareRow,
+    el('h3', {}, 'アカウント登録の招待コード'),
+    el('p', { class: 'note' },
+      '新しく社員がアカウント登録するときに必要なコードです。登録してほしい社員にだけ共有してください。' +
+      'コードを変更すると、以降の新規登録には新しいコードが必要になります（既存アカウントには影響しません）。'),
+    el('div', { class: 'field', style: 'max-width:280px;' }, el('label', {}, '招待コード（4文字以上）'), signupCodeInput),
     el('div', { style: 'margin-top:16px;' }, el('button', { type: 'submit' }, '保存')));
   card.append(form);
   content.append(card);
@@ -770,6 +786,7 @@ async function renderSettingsTab(content) {
   try {
     const settings = await api('/api/settings');
     for (const [key] of allFields) inputs[key].value = settings[key];
+    signupCodeInput.value = settings.signupCode || '';
   } catch (err) {
     showMessage(card, err.message, 'error');
   }
