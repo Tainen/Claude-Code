@@ -117,7 +117,7 @@ const TABS = [
   { id: 'orders', label: 'イベント受注', render: renderOrdersTab },
   { id: 'events', label: 'イベント管理', render: renderEventsTab, ownerOnly: true },
   { id: 'settings', label: '設定', render: renderSettingsTab, ownerOnly: true },
-  { id: 'members', label: 'メンバー給与', render: renderMembersTab, ownerOnly: true },
+  { id: 'members', label: 'メンバー管理', render: renderMembersTab, ownerOnly: true },
 ];
 let activeTab = 'salary';
 
@@ -365,21 +365,74 @@ function assignmentCell(card, deal, assignment, role) {
     }
     return cell;
   }
-  // 空き枠: 自分が担当になるボタン
-  return el('td', {},
-    el('button', {
-      onclick: async () => {
-        try {
-          await api('/api/rpo-assignments', {
-            method: 'POST',
-            body: JSON.stringify({ dealId: deal.id, role }),
-          });
-          renderApp();
-        } catch (err) {
-          showMessage(card, err.message, 'error');
-        }
-      },
-    }, `${roleLabel}担当になる`));
+  return el('td', {}, el('span', { class: 'note', style: 'margin:0;' }, '未定'));
+}
+
+// 自分の担当案件をプルダウンで選ぶセクション（メイン/サブそれぞれ）
+function myDealsSection(card, deals) {
+  const wrap = el('div');
+  const dealLabel = (d) =>
+    `${d.clientName}（月間粗利 ${yen(d.monthlyProfit)} / ${ym(d.startYear, d.startMonth)}開始 / ${d.termMonths === 6 ? '半年' : '1年'}）`;
+
+  for (const role of ['main', 'sub']) {
+    const roleLabel = role === 'main' ? 'メイン' : 'サブ';
+    wrap.append(el('h3', {}, `自分の${roleLabel}案件`));
+
+    // 現在の担当一覧
+    const mine = deals.filter((d) => d[role] && d[role].userId === me.id);
+    if (mine.length === 0) {
+      wrap.append(el('p', { class: 'note' }, `${roleLabel}担当の案件はまだありません。下のプルダウンから選んでください。`));
+    } else {
+      const list = el('div');
+      for (const d of mine) {
+        list.append(el('div', { class: 'bulk-bar' },
+          el('span', {}, dealLabel(d)),
+          el('button', {
+            class: 'danger',
+            onclick: async () => {
+              if (!confirm(`「${d.clientName}」の${roleLabel}担当を外れますか？`)) return;
+              try {
+                await api(`/api/rpo-assignments/${d[role].id}`, { method: 'DELETE' });
+                renderApp();
+              } catch (err) {
+                showMessage(card, err.message, 'error');
+              }
+            },
+          }, '外れる')));
+      }
+      wrap.append(list);
+    }
+
+    // 選択式の追加フォーム: その担当枠が空いていて、自分がまだ関わっていない案件のみ
+    const available = deals.filter((d) =>
+      !d[role] &&
+      !(d.main && d.main.userId === me.id) &&
+      !(d.sub && d.sub.userId === me.id));
+    if (available.length > 0) {
+      const select = el('select');
+      for (const d of available) {
+        select.append(el('option', { value: d.id }, dealLabel(d)));
+      }
+      wrap.append(el('div', { class: 'bulk-bar' },
+        select,
+        el('button', {
+          onclick: async () => {
+            try {
+              await api('/api/rpo-assignments', {
+                method: 'POST',
+                body: JSON.stringify({ dealId: Number(select.value), role }),
+              });
+              renderApp();
+            } catch (err) {
+              showMessage(card, err.message, 'error');
+            }
+          },
+        }, `${roleLabel}案件に追加`)));
+    } else {
+      wrap.append(el('p', { class: 'note' }, `現在選択できる案件はありません（${roleLabel}担当の枠が空いている案件がないか、すでに担当済みです）。`));
+    }
+  }
+  return wrap;
 }
 
 async function renderRpoTab(content) {
@@ -387,9 +440,9 @@ async function renderRpoTab(content) {
   const card = el('div', { class: 'card' });
   card.append(el('h2', {}, 'RPO案件'));
   card.append(el('p', { class: 'note' },
-    (isOwner ? '案件の登録・編集はオーナーが行います。' : '案件はオーナーが登録します。') +
-    '各案件にメイン担当1名・サブ担当1名がつけます。インセンティブは保有額帯ごとの率に、' +
-    '担当割合（メイン/サブ、設定画面で変更可能）を掛けて支給月に支払われます。'));
+    (isOwner ? '案件（名前・月間粗利・契約期間）の登録・編集はオーナーが行います。' : '案件はオーナーが登録します。') +
+    '各案件にメイン担当1名・サブ担当1名がつけます。下のプルダウンから自分のメイン案件・サブ案件を選んでください。' +
+    'インセンティブは保有額帯ごとの率に、担当割合（メイン/サブ、設定画面で変更可能）を掛けて支給月に支払われます。'));
 
   // ---- オーナー用: 新規登録フォーム ----
   if (isOwner) {
@@ -434,8 +487,9 @@ async function renderRpoTab(content) {
     );
   }
 
+  const myDealsArea = el('div');
   const list = el('div');
-  card.append(el('h3', {}, '案件一覧'), list);
+  card.append(myDealsArea, el('h3', {}, '案件一覧（全体）'), list);
   content.append(card);
 
   try {
@@ -445,6 +499,7 @@ async function renderRpoTab(content) {
         isOwner ? 'RPO案件はまだ登録されていません。' : 'RPO案件はまだ登録されていません（オーナーに登録を依頼してください）。'));
       return;
     }
+    myDealsArea.append(myDealsSection(card, deals));
     const tbody = el('tbody');
     for (const d of deals) {
       const tr = el('tr', {},
@@ -940,9 +995,61 @@ async function renderSettingsTab(content) {
   }
 }
 
-// ---------- メンバー給与（オーナー） ----------
+// ---------- メンバー管理（オーナー） ----------
 
 async function renderMembersTab(content) {
+  // ---- 権限管理 ----
+  const roleCard = el('div', { class: 'card' });
+  roleCard.append(el('h2', {}, 'メンバー一覧・権限管理（オーナー）'));
+  roleCard.append(el('p', { class: 'note' },
+    'メンバーをオーナー権限に変更したり、オーナーをメンバーに戻したりできます。' +
+    'オーナーはイベント・RPO案件・設定の管理と全メンバーの給与閲覧ができます。オーナーは最低1人必要です。'));
+  const roleArea = el('div');
+  roleCard.append(roleArea);
+  content.append(roleCard);
+
+  try {
+    const users = await api('/api/admin/users');
+    const tbody = el('tbody');
+    for (const u of users) {
+      const isSelf = u.id === me.id;
+      const toOwner = u.role === 'member';
+      const actionLabel = toOwner ? 'オーナーにする' : 'メンバーに戻す';
+      const confirmText = toOwner
+        ? `${u.name} さんをオーナー権限にしますか？\nイベント・案件・設定の管理と全メンバーの給与閲覧ができるようになります。`
+        : `${u.name} さん${isSelf ? '（自分）' : ''}をメンバー権限に戻しますか？${isSelf ? '\n自分の管理画面へのアクセスも失われます。' : ''}`;
+      tbody.append(el('tr', {},
+        el('td', {}, u.name + (isSelf ? '（自分）' : '')),
+        el('td', {}, u.email),
+        el('td', {}, el('span', { class: 'badge' }, u.role === 'owner' ? 'オーナー' : 'メンバー')),
+        el('td', {},
+          el('button', {
+            class: toOwner ? '' : 'danger',
+            onclick: async () => {
+              if (!confirm(confirmText)) return;
+              try {
+                await api(`/api/admin/users/${u.id}/role`, {
+                  method: 'PUT',
+                  body: JSON.stringify({ role: toOwner ? 'owner' : 'member' }),
+                });
+                if (isSelf) me = await api('/api/me'); // 自分を変更した場合は権限を取り直す
+                renderApp();
+              } catch (err) {
+                showMessage(roleCard, err.message, 'error');
+              }
+            },
+          }, actionLabel))));
+    }
+    roleArea.append(el('div', { class: 'table-wrap' },
+      el('table', {},
+        el('thead', {}, el('tr', {},
+          el('th', {}, '氏名'), el('th', {}, 'メールアドレス'), el('th', {}, '権限'), el('th', {}, ''))),
+        tbody)));
+  } catch (err) {
+    showMessage(roleCard, err.message, 'error');
+  }
+
+  // ---- 給与確認 ----
   const card = el('div', { class: 'card' });
   card.append(el('h2', {}, 'メンバー給与の確認（オーナー）'));
 
