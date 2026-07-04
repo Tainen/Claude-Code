@@ -222,6 +222,64 @@ function createApp(dbPath) {
     res.json({ id: Number(result.lastInsertRowid) });
   });
 
+  // 複数イベントの受注を一括登録（同じ受注年月でまとめて登録する）
+  app.post('/api/orders/bulk', auth.requireAuth, (req, res) => {
+    const orderYear = Number(req.body?.orderYear);
+    const orderMonth = Number(req.body?.orderMonth);
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (!isValidYear(orderYear) || !isValidMonth(orderMonth)) {
+      return res.status(400).json({ error: '受注年月が不正です' });
+    }
+    if (items.length === 0) {
+      return res.status(400).json({ error: 'イベントを1つ以上選択してください' });
+    }
+    const findEvent = db.prepare('SELECT id FROM events WHERE id = ?');
+    for (const item of items) {
+      const slots = Number(item?.slots);
+      if (!findEvent.get(Number(item?.eventId))) {
+        return res.status(400).json({ error: '指定されたイベントが存在しません' });
+      }
+      if (!Number.isInteger(slots) || slots < 1) {
+        return res.status(400).json({ error: '枠数は1以上の整数で入力してください' });
+      }
+    }
+    const insert = db.prepare(
+      'INSERT INTO event_orders (user_id, event_id, slots, order_year, order_month) VALUES (?, ?, ?, ?, ?)'
+    );
+    db.exec('BEGIN');
+    try {
+      for (const item of items) {
+        insert.run(req.user.id, Number(item.eventId), Number(item.slots), orderYear, orderMonth);
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    res.json({ count: items.length });
+  });
+
+  // 自分の受注を一括削除
+  app.post('/api/orders/delete', auth.requireAuth, (req, res) => {
+    const ids = (Array.isArray(req.body?.ids) ? req.body.ids : [])
+      .map(Number)
+      .filter(Number.isInteger);
+    if (ids.length === 0) {
+      return res.status(400).json({ error: '削除する受注を選択してください' });
+    }
+    const del = db.prepare('DELETE FROM event_orders WHERE id = ? AND user_id = ?');
+    let deleted = 0;
+    db.exec('BEGIN');
+    try {
+      for (const id of ids) deleted += del.run(id, req.user.id).changes;
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    res.json({ deleted });
+  });
+
   app.delete('/api/orders/:id', auth.requireAuth, (req, res) => {
     const result = db
       .prepare('DELETE FROM event_orders WHERE id = ? AND user_id = ?')
