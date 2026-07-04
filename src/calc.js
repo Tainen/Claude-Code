@@ -21,9 +21,12 @@
 //   （受注登録の順番ではなく開催日順で低い段階から消費する）
 //
 // ■ RPO インセンティブ
-//   対象 3ヶ月それぞれについて、その月に稼働中の RPO 案件の月間粗利合計を求め、
+//   案件はオーナーが登録し、社員はメイン担当またはサブ担当として案件を選ぶ。
+//   対象 3ヶ月それぞれについて、その月に稼働中の担当案件の月間粗利合計を求め、
 //   保有粗利帯（〜100万 / 〜150万 / 〜200万 / 201万〜）ごとにオーナーが設定した
-//   パーセンテージを掛けた金額を合算する。
+//   パーセンテージを掛け、さらに担当割合（初期値: メイン80% / サブ20%、
+//   オーナーが変更可能）を掛けた金額を合算する。
+//   ※ 保有粗利帯の判定は、担当している案件の粗利全額（メイン/サブ問わず）で行う。
 // ============================================================
 
 const QUARTER_MONTHS = [1, 4, 7, 10];
@@ -185,36 +188,48 @@ function rpoTierPercent(monthlyTotal, tierPercents) {
   return tierPercents[tierPercents.length - 1];
 }
 
-// 指定支給月に支払われる RPO インセンティブ（対象3ヶ月の月別内訳つき）
-function rpoIncentiveForPayout(deals, payoutYear, payoutMonth, tierPercents) {
+// 指定支給月に支払われる RPO インセンティブ（対象3ヶ月の月別・案件別内訳つき）
+// assignments: [{ clientName, monthlyProfit, startYear, startMonth, termMonths, role: 'main'|'sub' }]
+// roleShares: { main: 80, sub: 20 } のような担当割合 (%)
+function rpoIncentiveForPayout(assignments, payoutYear, payoutMonth, tierPercents, roleShares) {
   const months = revenueMonthsForPayout(payoutYear, payoutMonth);
   const detail = [];
   let total = 0;
   for (const { year, month } of months) {
-    const monthlyProfit = deals
-      .filter((d) => dealActiveInMonth(d, year, month))
-      .reduce((sum, d) => sum + d.monthlyProfit, 0);
+    const active = assignments.filter((a) => dealActiveInMonth(a, year, month));
+    // 保有粗利帯の判定は担当案件の粗利全額で行う
+    const monthlyProfit = active.reduce((sum, a) => sum + a.monthlyProfit, 0);
     if (monthlyProfit <= 0) {
-      detail.push({ year, month, monthlyProfit: 0, percent: 0, amount: 0 });
+      detail.push({ year, month, monthlyProfit: 0, percent: 0, amount: 0, deals: [] });
       continue;
     }
     const percent = rpoTierPercent(monthlyProfit, tierPercents);
-    const amount = Math.round((monthlyProfit * percent) / 100);
+    const deals = active.map((a) => {
+      const share = roleShares[a.role] ?? 0;
+      return {
+        clientName: a.clientName,
+        role: a.role,
+        monthlyProfit: a.monthlyProfit,
+        share,
+        amount: Math.round((a.monthlyProfit * percent * share) / 10000),
+      };
+    });
+    const amount = deals.reduce((sum, d) => sum + d.amount, 0);
     total += amount;
-    detail.push({ year, month, monthlyProfit, percent, amount });
+    detail.push({ year, month, monthlyProfit, percent, amount, deals });
   }
   return { total, detail };
 }
 
 // ---------------- 月次給与まとめ ----------------
-function salaryForMonth({ baseRecords, orders, deals, tierPercents }, year, month) {
+function salaryForMonth({ baseRecords, orders, assignments, tierPercents, roleShares }, year, month) {
   const base = baseSalaryForMonth(baseRecords, year, month);
   const quarter = isQuarterMonth(month);
   const eventIncentive = quarter
     ? eventIncentiveForPayout(orders, year, month)
     : { total: 0, units: [] };
   const rpoIncentive = quarter
-    ? rpoIncentiveForPayout(deals, year, month, tierPercents)
+    ? rpoIncentiveForPayout(assignments, year, month, tierPercents, roleShares)
     : { total: 0, detail: [] };
   return {
     year,

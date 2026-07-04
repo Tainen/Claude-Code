@@ -107,7 +107,7 @@ const TABS = [
   { id: 'rpo', label: 'RPO案件', render: renderRpoTab },
   { id: 'orders', label: 'イベント受注', render: renderOrdersTab },
   { id: 'events', label: 'イベント管理', render: renderEventsTab, ownerOnly: true },
-  { id: 'settings', label: 'RPO率設定', render: renderSettingsTab, ownerOnly: true },
+  { id: 'settings', label: 'RPO設定', render: renderSettingsTab, ownerOnly: true },
   { id: 'members', label: 'メンバー給与', render: renderMembersTab, ownerOnly: true },
 ];
 let activeTab = 'salary';
@@ -202,19 +202,26 @@ function salaryBreakdownView(data) {
   if (rpoRows.length > 0) {
     const tbody = el('tbody');
     for (const d of rpoRows) {
-      tbody.append(el('tr', {},
-        el('td', {}, ym(d.year, d.month)),
-        el('td', { class: 'num' }, yen(d.monthlyProfit)),
-        el('td', { class: 'num' }, `${d.percent}%`),
-        el('td', { class: 'num' }, yen(d.amount))));
+      for (const deal of d.deals) {
+        tbody.append(el('tr', {},
+          el('td', {}, ym(d.year, d.month)),
+          el('td', {}, deal.clientName),
+          el('td', {}, deal.role === 'main' ? 'メイン' : 'サブ'),
+          el('td', { class: 'num' }, yen(deal.monthlyProfit)),
+          el('td', { class: 'num' }, `${d.percent}%`),
+          el('td', { class: 'num' }, `${deal.share}%`),
+          el('td', { class: 'num' }, yen(deal.amount))));
+      }
     }
     wrap.append(
-      el('h3', {}, 'RPOインセンティブ内訳（対象3ヶ月）'),
+      el('h3', {}, 'RPOインセンティブ内訳（対象3ヶ月・案件別）'),
+      el('p', { class: 'note' }, '適用率は、その月に担当している案件の粗利合計（保有額帯）で決まります。'),
       el('div', { class: 'table-wrap' },
         el('table', {},
           el('thead', {}, el('tr', {},
-            el('th', {}, '対象月'), el('th', { class: 'num' }, '月間粗利合計'),
-            el('th', { class: 'num' }, '適用率'), el('th', { class: 'num' }, 'インセンティブ'))),
+            el('th', {}, '対象月'), el('th', {}, '案件'), el('th', {}, '担当'),
+            el('th', { class: 'num' }, '月間粗利'), el('th', { class: 'num' }, '適用率'),
+            el('th', { class: 'num' }, '担当割合'), el('th', { class: 'num' }, 'インセンティブ'))),
           tbody))
     );
   }
@@ -327,85 +334,189 @@ async function renderBaseTab(content) {
 
 // ---------- RPO案件 ----------
 
-async function renderRpoTab(content) {
-  const card = el('div', { class: 'card' });
-  card.append(el('h2', {}, 'RPO案件（自分の担当分）'));
-  card.append(el('p', { class: 'note' },
-    '契約は半年または1年。対象3ヶ月の月間粗利合計に、保有額帯ごとの率（オーナー設定）を掛けた金額が支給月にインセンティブとして入ります。'));
-
-  const now = new Date();
-  const clientName = el('input', { type: 'text', placeholder: 'クライアント名' });
-  const monthlyProfit = el('input', { type: 'number', min: 0, step: 1, placeholder: '月間粗利（円）' });
-  const yearSel = el('select');
-  yearOptions(yearSel, now.getFullYear() - 2, now.getFullYear() + 2, now.getFullYear());
-  const monthSel = el('select');
-  monthOptions(monthSel, now.getMonth() + 1);
-  const termSel = el('select');
-  termSel.append(el('option', { value: 6 }, '半年（6ヶ月）'), el('option', { value: 12 }, '1年（12ヶ月）'));
-
-  card.append(
-    el('form', {
-      class: 'inline',
-      onsubmit: async (e) => {
-        e.preventDefault();
+function assignmentCell(card, deal, assignment, role) {
+  const roleLabel = role === 'main' ? 'メイン' : 'サブ';
+  // 誰かが担当している場合: 名前 + （本人またはオーナーなら）外すボタン
+  if (assignment) {
+    const cell = el('td', {}, assignment.userName);
+    if (assignment.userId === me.id || me.role === 'owner') {
+      cell.append(' ', el('button', {
+        class: 'danger',
+        onclick: async () => {
+          const who = assignment.userId === me.id ? '自分' : assignment.userName + ' さん';
+          if (!confirm(`「${deal.clientName}」の${roleLabel}担当（${who}）を外しますか？`)) return;
+          try {
+            await api(`/api/rpo-assignments/${assignment.id}`, { method: 'DELETE' });
+            renderApp();
+          } catch (err) {
+            showMessage(card, err.message, 'error');
+          }
+        },
+      }, '外す'));
+    }
+    return cell;
+  }
+  // 空き枠: 自分が担当になるボタン
+  return el('td', {},
+    el('button', {
+      onclick: async () => {
         try {
-          await api('/api/rpo', {
+          await api('/api/rpo-assignments', {
             method: 'POST',
-            body: JSON.stringify({
-              clientName: clientName.value,
-              monthlyProfit: Number(monthlyProfit.value),
-              startYear: Number(yearSel.value),
-              startMonth: Number(monthSel.value),
-              termMonths: Number(termSel.value),
-            }),
+            body: JSON.stringify({ dealId: deal.id, role }),
           });
           renderApp();
         } catch (err) {
           showMessage(card, err.message, 'error');
         }
       },
-    },
-      el('div', { class: 'field' }, el('label', {}, '案件名'), clientName),
-      el('div', { class: 'field' }, el('label', {}, '月間粗利（円）'), monthlyProfit),
-      el('div', { class: 'field' }, el('label', {}, '契約開始年'), yearSel),
-      el('div', { class: 'field' }, el('label', {}, '契約開始月'), monthSel),
-      el('div', { class: 'field' }, el('label', {}, '契約期間'), termSel),
-      el('button', { type: 'submit' }, '登録'))
-  );
+    }, `${roleLabel}担当になる`));
+}
+
+async function renderRpoTab(content) {
+  const isOwner = me.role === 'owner';
+  const card = el('div', { class: 'card' });
+  card.append(el('h2', {}, 'RPO案件'));
+  card.append(el('p', { class: 'note' },
+    (isOwner ? '案件の登録・編集はオーナーが行います。' : '案件はオーナーが登録します。') +
+    '各案件にメイン担当1名・サブ担当1名がつけます。インセンティブは保有額帯ごとの率に、' +
+    '担当割合（メイン/サブ、設定画面で変更可能）を掛けて支給月に支払われます。'));
+
+  // ---- オーナー用: 新規登録フォーム ----
+  if (isOwner) {
+    const now = new Date();
+    const clientName = el('input', { type: 'text', placeholder: 'クライアント名' });
+    const monthlyProfit = el('input', { type: 'number', min: 0, step: 1, placeholder: '月間粗利（円）' });
+    const yearSel = el('select');
+    yearOptions(yearSel, now.getFullYear() - 2, now.getFullYear() + 2, now.getFullYear());
+    const monthSel = el('select');
+    monthOptions(monthSel, now.getMonth() + 1);
+    const termSel = el('select');
+    termSel.append(el('option', { value: 6 }, '半年（6ヶ月）'), el('option', { value: 12 }, '1年（12ヶ月）'));
+
+    card.append(
+      el('form', {
+        class: 'inline',
+        onsubmit: async (e) => {
+          e.preventDefault();
+          try {
+            await api('/api/rpo-deals', {
+              method: 'POST',
+              body: JSON.stringify({
+                clientName: clientName.value,
+                monthlyProfit: Number(monthlyProfit.value),
+                startYear: Number(yearSel.value),
+                startMonth: Number(monthSel.value),
+                termMonths: Number(termSel.value),
+              }),
+            });
+            renderApp();
+          } catch (err) {
+            showMessage(card, err.message, 'error');
+          }
+        },
+      },
+        el('div', { class: 'field' }, el('label', {}, '案件名'), clientName),
+        el('div', { class: 'field' }, el('label', {}, '月間粗利（円）'), monthlyProfit),
+        el('div', { class: 'field' }, el('label', {}, '契約開始年'), yearSel),
+        el('div', { class: 'field' }, el('label', {}, '契約開始月'), monthSel),
+        el('div', { class: 'field' }, el('label', {}, '契約期間'), termSel),
+        el('button', { type: 'submit' }, '登録'))
+    );
+  }
 
   const list = el('div');
-  card.append(el('h3', {}, '登録済み案件'), list);
+  card.append(el('h3', {}, '案件一覧'), list);
   content.append(card);
 
   try {
-    const deals = await api('/api/rpo');
+    const deals = await api('/api/rpo-deals');
     if (deals.length === 0) {
-      list.append(el('p', { class: 'note' }, 'RPO案件はまだ登録されていません。'));
-    } else {
-      const tbody = el('tbody');
-      for (const d of deals) {
-        tbody.append(el('tr', {},
-          el('td', {}, d.clientName),
-          el('td', { class: 'num' }, yen(d.monthlyProfit)),
-          el('td', {}, ym(d.startYear, d.startMonth) + ' 開始'),
-          el('td', {}, d.termMonths === 6 ? '半年' : '1年'),
-          el('td', {},
-            el('button', {
-              class: 'danger',
-              onclick: async () => {
-                if (!confirm(`「${d.clientName}」を削除しますか？`)) return;
-                await api(`/api/rpo/${d.id}`, { method: 'DELETE' });
-                renderApp();
-              },
-            }, '削除'))));
-      }
-      list.append(el('div', { class: 'table-wrap' },
-        el('table', {},
-          el('thead', {}, el('tr', {},
-            el('th', {}, '案件名'), el('th', { class: 'num' }, '月間粗利'),
-            el('th', {}, '契約開始'), el('th', {}, '期間'), el('th', {}, ''))),
-          tbody)));
+      list.append(el('p', { class: 'note' },
+        isOwner ? 'RPO案件はまだ登録されていません。' : 'RPO案件はまだ登録されていません（オーナーに登録を依頼してください）。'));
+      return;
     }
+    const tbody = el('tbody');
+    for (const d of deals) {
+      const tr = el('tr', {},
+        el('td', {}, d.clientName),
+        el('td', { class: 'num' }, yen(d.monthlyProfit)),
+        el('td', {}, ym(d.startYear, d.startMonth) + ' 開始'),
+        el('td', {}, d.termMonths === 6 ? '半年' : '1年'),
+        assignmentCell(card, d, d.main, 'main'),
+        assignmentCell(card, d, d.sub, 'sub'));
+
+      // オーナーのみ: 編集・削除
+      const actions = el('td', {});
+      if (isOwner) {
+        actions.append(
+          el('button', {
+            class: 'danger',
+            onclick: () => {
+              // 行を編集フォームに切り替える
+              const name = el('input', { type: 'text', value: d.clientName });
+              const profit = el('input', { type: 'number', min: 0, step: 1, value: d.monthlyProfit });
+              const ySel = el('select');
+              yearOptions(ySel, d.startYear - 3, d.startYear + 3, d.startYear);
+              const mSel = el('select');
+              monthOptions(mSel, d.startMonth);
+              const tSel = el('select');
+              tSel.append(
+                el('option', { value: 6, ...(d.termMonths === 6 ? { selected: '' } : {}) }, '半年'),
+                el('option', { value: 12, ...(d.termMonths === 12 ? { selected: '' } : {}) }, '1年'));
+              tr.replaceChildren(
+                el('td', {}, name),
+                el('td', {}, profit),
+                el('td', {}, ySel, ' ', mSel),
+                el('td', {}, tSel),
+                el('td', { colspan: 3 },
+                  el('button', {
+                    onclick: async () => {
+                      try {
+                        await api(`/api/rpo-deals/${d.id}`, {
+                          method: 'PUT',
+                          body: JSON.stringify({
+                            clientName: name.value,
+                            monthlyProfit: Number(profit.value),
+                            startYear: Number(ySel.value),
+                            startMonth: Number(mSel.value),
+                            termMonths: Number(tSel.value),
+                          }),
+                        });
+                        renderApp();
+                      } catch (err) {
+                        showMessage(card, err.message, 'error');
+                      }
+                    },
+                  }, '保存'),
+                  ' ',
+                  el('button', { class: 'danger', onclick: () => renderApp() }, 'キャンセル')));
+            },
+          }, '編集'),
+          ' ',
+          el('button', {
+            class: 'danger',
+            onclick: async () => {
+              if (!confirm(`「${d.clientName}」を削除しますか？担当情報も一緒に削除されます。`)) return;
+              try {
+                await api(`/api/rpo-deals/${d.id}`, { method: 'DELETE' });
+                renderApp();
+              } catch (err) {
+                showMessage(card, err.message, 'error');
+              }
+            },
+          }, '削除'));
+      }
+      tr.append(actions);
+      tbody.append(tr);
+    }
+    list.append(el('div', { class: 'table-wrap' },
+      el('table', {},
+        el('thead', {}, el('tr', {},
+          el('th', {}, '案件名'), el('th', { class: 'num' }, '月間粗利'),
+          el('th', {}, '契約開始'), el('th', {}, '期間'),
+          el('th', {}, 'メイン担当'), el('th', {}, 'サブ担当'), el('th', {}, ''))),
+        tbody)));
   } catch (err) {
     showMessage(card, err.message, 'error');
   }
@@ -506,7 +617,9 @@ async function renderOrdersTab(content) {
 async function renderEventsTab(content) {
   const card = el('div', { class: 'card' });
   card.append(el('h2', {}, '採用イベントの管理（オーナー）'));
-  card.append(el('p', { class: 'note' }, '年間のイベント（50〜100回程度）の開催日と名前を登録します。社員はここに登録されたイベントに対して受注を記録します。'));
+  card.append(el('p', { class: 'note' },
+    '年間のイベント（50〜100回程度）の開催日と名前を登録します。社員はここに登録されたイベントに対して受注を記録します。' +
+    '登録後も「編集」から名前・開催日を変更できます（開催日を変えると支給月の計算にも自動反映されます）。'));
 
   const name = el('input', { type: 'text', placeholder: 'イベント名' });
   const date = el('input', { type: 'date' });
@@ -543,10 +656,37 @@ async function renderEventsTab(content) {
     } else {
       const tbody = el('tbody');
       for (const ev of events) {
-        tbody.append(el('tr', {},
+        const tr = el('tr', {},
           el('td', {}, ev.eventDate),
           el('td', {}, ev.name),
           el('td', {},
+            el('button', {
+              onclick: () => {
+                // 行を編集フォームに切り替える（受注済みイベントも名前・日付を変更できる）
+                const dateInput = el('input', { type: 'date', value: ev.eventDate });
+                const nameInput = el('input', { type: 'text', value: ev.name });
+                tr.replaceChildren(
+                  el('td', {}, dateInput),
+                  el('td', {}, nameInput),
+                  el('td', {},
+                    el('button', {
+                      onclick: async () => {
+                        try {
+                          await api(`/api/events/${ev.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({ name: nameInput.value, eventDate: dateInput.value }),
+                          });
+                          renderApp();
+                        } catch (err) {
+                          showMessage(card, err.message, 'error');
+                        }
+                      },
+                    }, '保存'),
+                    ' ',
+                    el('button', { class: 'danger', onclick: () => renderApp() }, 'キャンセル')));
+              },
+            }, '編集'),
+            ' ',
             el('button', {
               class: 'danger',
               onclick: async () => {
@@ -558,7 +698,8 @@ async function renderEventsTab(content) {
                   showMessage(card, err.message, 'error');
                 }
               },
-            }, '削除'))));
+            }, '削除')));
+        tbody.append(tr);
       }
       list.append(el('div', { class: 'table-wrap' },
         el('table', {},
@@ -574,23 +715,30 @@ async function renderEventsTab(content) {
 
 async function renderSettingsTab(content) {
   const card = el('div', { class: 'card' });
-  card.append(el('h2', {}, 'RPOインセンティブ率の設定（オーナー）'));
-  card.append(el('p', { class: 'note' }, '月間粗利の保有額帯ごとに、インセンティブとして支給するパーセンテージを設定します。'));
+  card.append(el('h2', {}, 'RPOインセンティブの設定（オーナー）'));
 
-  const fields = [
+  const tierFields = [
     ['rpoTier1Percent', '〜100万円'],
     ['rpoTier2Percent', '100万円超〜150万円'],
     ['rpoTier3Percent', '150万円超〜200万円'],
     ['rpoTier4Percent', '200万円超'],
   ];
+  const shareFields = [
+    ['rpoMainPercent', 'メイン担当'],
+    ['rpoSubPercent', 'サブ担当'],
+  ];
+  const allFields = [...tierFields, ...shareFields];
   const inputs = {};
+  for (const [key] of allFields) {
+    inputs[key] = el('input', { type: 'number', min: 0, max: 100, step: 0.1 });
+  }
+
   const form = el('form', {
-    class: 'inline',
     onsubmit: async (e) => {
       e.preventDefault();
       try {
         const body = {};
-        for (const [key] of fields) body[key] = Number(inputs[key].value);
+        for (const [key] of allFields) body[key] = Number(inputs[key].value);
         await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
         showMessage(card, '保存しました', 'ok');
       } catch (err) {
@@ -598,17 +746,30 @@ async function renderSettingsTab(content) {
       }
     },
   });
-  for (const [key, label] of fields) {
-    inputs[key] = el('input', { type: 'number', min: 0, max: 100, step: 0.1 });
-    form.append(el('div', { class: 'field' }, el('label', {}, `${label} (%)`), inputs[key]));
+
+  const tierRow = el('div', { class: 'inline', style: 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;' });
+  for (const [key, label] of tierFields) {
+    tierRow.append(el('div', { class: 'field' }, el('label', {}, `${label} (%)`), inputs[key]));
   }
-  form.append(el('button', { type: 'submit' }, '保存'));
+  const shareRow = el('div', { class: 'inline', style: 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;' });
+  for (const [key, label] of shareFields) {
+    shareRow.append(el('div', { class: 'field' }, el('label', {}, `${label} (%)`), inputs[key]));
+  }
+
+  form.append(
+    el('h3', {}, '保有額帯ごとの率'),
+    el('p', { class: 'note' }, '月間粗利の保有額帯ごとに、インセンティブとして支給するパーセンテージを設定します。'),
+    tierRow,
+    el('h3', {}, '担当割合（メイン / サブ）'),
+    el('p', { class: 'note' }, '各案件のインセンティブを、メイン担当とサブ担当にどの割合で配分するかを設定します（初期値: メイン80% / サブ20%）。'),
+    shareRow,
+    el('div', { style: 'margin-top:16px;' }, el('button', { type: 'submit' }, '保存')));
   card.append(form);
   content.append(card);
 
   try {
     const settings = await api('/api/settings');
-    for (const [key] of fields) inputs[key].value = settings[key];
+    for (const [key] of allFields) inputs[key].value = settings[key];
   } catch (err) {
     showMessage(card, err.message, 'error');
   }

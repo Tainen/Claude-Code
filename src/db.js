@@ -10,6 +10,9 @@ const DEFAULT_SETTINGS = {
   rpo_tier2_percent: '5', // 100万円超〜150万円
   rpo_tier3_percent: '7', // 150万円超〜200万円
   rpo_tier4_percent: '10', // 200万円超
+  // RPO 担当割合 (%)。オーナーが設定画面から変更できる。
+  rpo_main_percent: '80', // メイン担当
+  rpo_sub_percent: '20', // サブ担当
 };
 
 function createDb(filePath) {
@@ -63,10 +66,9 @@ function createDb(filePath) {
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    -- RPO 案件（社員が登録）。半年 (6ヶ月) または 1年 (12ヶ月) 契約。
+    -- RPO 案件（オーナーが登録）。半年 (6ヶ月) または 1年 (12ヶ月) 契約。
     CREATE TABLE IF NOT EXISTS rpo_deals (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       client_name    TEXT NOT NULL,
       monthly_profit INTEGER NOT NULL CHECK (monthly_profit >= 0),
       start_year     INTEGER NOT NULL,
@@ -75,11 +77,24 @@ function createDb(filePath) {
       created_at     TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- RPO 案件の担当（社員が自分で選ぶ）。各案件にメイン1名・サブ1名まで。
+    CREATE TABLE IF NOT EXISTS rpo_assignments (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      deal_id    INTEGER NOT NULL REFERENCES rpo_deals(id) ON DELETE CASCADE,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role       TEXT NOT NULL CHECK (role IN ('main', 'sub')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (deal_id, role),
+      UNIQUE (deal_id, user_id)
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
   `);
+
+  migrateLegacyRpoDeals(db);
 
   const insertSetting = db.prepare(
     'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)'
@@ -89,6 +104,37 @@ function createDb(filePath) {
   }
 
   return db;
+}
+
+// 旧スキーマ（rpo_deals に user_id があり社員が案件を直接所有）からの移行。
+// 旧 user_id はメイン担当として rpo_assignments に引き継ぐ。
+function migrateLegacyRpoDeals(db) {
+  const cols = db
+    .prepare("SELECT name FROM pragma_table_info('rpo_deals')")
+    .all()
+    .map((r) => r.name);
+  if (!cols.includes('user_id')) return;
+
+  db.exec('PRAGMA foreign_keys = OFF');
+  db.exec(`
+    INSERT INTO rpo_assignments (deal_id, user_id, role)
+      SELECT id, user_id, 'main' FROM rpo_deals;
+
+    CREATE TABLE rpo_deals_new (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_name    TEXT NOT NULL,
+      monthly_profit INTEGER NOT NULL CHECK (monthly_profit >= 0),
+      start_year     INTEGER NOT NULL,
+      start_month    INTEGER NOT NULL CHECK (start_month BETWEEN 1 AND 12),
+      term_months    INTEGER NOT NULL CHECK (term_months IN (6, 12)),
+      created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT INTO rpo_deals_new (id, client_name, monthly_profit, start_year, start_month, term_months, created_at)
+      SELECT id, client_name, monthly_profit, start_year, start_month, term_months, created_at FROM rpo_deals;
+    DROP TABLE rpo_deals;
+    ALTER TABLE rpo_deals_new RENAME TO rpo_deals;
+  `);
+  db.exec('PRAGMA foreign_keys = ON');
 }
 
 function getSetting(db, key) {
@@ -110,4 +156,19 @@ function getRpoTierPercents(db) {
   );
 }
 
-module.exports = { createDb, getSetting, setSetting, getRpoTierPercents, DEFAULT_SETTINGS };
+// RPO 担当割合を { main, sub } (%) で返す
+function getRpoRoleShares(db) {
+  return {
+    main: Number(getSetting(db, 'rpo_main_percent') ?? 0),
+    sub: Number(getSetting(db, 'rpo_sub_percent') ?? 0),
+  };
+}
+
+module.exports = {
+  createDb,
+  getSetting,
+  setSetting,
+  getRpoTierPercents,
+  getRpoRoleShares,
+  DEFAULT_SETTINGS,
+};

@@ -3,7 +3,13 @@
 const path = require('node:path');
 const express = require('express');
 
-const { createDb, getSetting, setSetting, getRpoTierPercents } = require('./db');
+const {
+  createDb,
+  getSetting,
+  setSetting,
+  getRpoTierPercents,
+  getRpoRoleShares,
+} = require('./db');
 const auth = require('./auth');
 const calc = require('./calc');
 
@@ -129,6 +135,23 @@ function createApp(dbPath) {
     res.json({ id: Number(result.lastInsertRowid), name: String(name).trim(), eventDate });
   });
 
+  // イベントの編集（名前・開催日）。開催日を変えると支給月・単価の計算にも自動反映される。
+  app.put('/api/events/:id', auth.requireOwner, (req, res) => {
+    const id = Number(req.params.id);
+    const { name, eventDate } = req.body || {};
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'イベント名は必須です' });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(eventDate || ''))) {
+      return res.status(400).json({ error: '開催日は YYYY-MM-DD 形式で入力してください' });
+    }
+    const result = db
+      .prepare('UPDATE events SET name = ?, event_date = ? WHERE id = ?')
+      .run(String(name).trim(), String(eventDate), id);
+    if (result.changes === 0) return res.status(404).json({ error: 'イベントが見つかりません' });
+    res.json({ id, name: String(name).trim(), eventDate });
+  });
+
   app.delete('/api/events/:id', auth.requireOwner, (req, res) => {
     const id = Number(req.params.id);
     const used = db
@@ -190,56 +213,133 @@ function createApp(dbPath) {
     res.json({ ok: true });
   });
 
-  // ---------------- RPO 案件（本人のみ） ----------------
+  // ---------------- RPO 案件（登録・編集はオーナー、閲覧は全員） ----------------
 
-  function listDeals(userId) {
-    return db
+  function validateDealBody(body) {
+    const clientName = String(body?.clientName || '').trim();
+    const monthlyProfit = Number(body?.monthlyProfit);
+    const startYear = Number(body?.startYear);
+    const startMonth = Number(body?.startMonth);
+    const termMonths = Number(body?.termMonths);
+    if (!clientName) return { error: '案件名（クライアント名）は必須です' };
+    if (!Number.isInteger(monthlyProfit) || monthlyProfit < 0) {
+      return { error: '月間粗利は0以上の整数で入力してください' };
+    }
+    if (!isValidYear(startYear) || !isValidMonth(startMonth)) {
+      return { error: '契約開始年月が不正です' };
+    }
+    if (termMonths !== 6 && termMonths !== 12) {
+      return { error: '契約期間は半年(6)か1年(12)を選択してください' };
+    }
+    return { clientName, monthlyProfit, startYear, startMonth, termMonths };
+  }
+
+  // 全案件を担当者情報つきで返す（社員はここから担当する案件を選ぶ）
+  function listDealsWithAssignments() {
+    const deals = db
       .prepare(
         `SELECT id, client_name AS clientName, monthly_profit AS monthlyProfit,
                 start_year AS startYear, start_month AS startMonth, term_months AS termMonths
-         FROM rpo_deals WHERE user_id = ?
-         ORDER BY start_year, start_month, id`
+         FROM rpo_deals ORDER BY start_year, start_month, id`
       )
-      .all(userId);
+      .all();
+    const assignments = db
+      .prepare(
+        `SELECT a.id, a.deal_id AS dealId, a.user_id AS userId, a.role, u.name AS userName
+         FROM rpo_assignments a JOIN users u ON u.id = a.user_id`
+      )
+      .all();
+    for (const deal of deals) {
+      deal.main = assignments.find((a) => a.dealId === deal.id && a.role === 'main') || null;
+      deal.sub = assignments.find((a) => a.dealId === deal.id && a.role === 'sub') || null;
+    }
+    return deals;
   }
 
-  app.get('/api/rpo', auth.requireAuth, (req, res) => {
-    res.json(listDeals(req.user.id));
+  app.get('/api/rpo-deals', auth.requireAuth, (req, res) => {
+    res.json(listDealsWithAssignments());
   });
 
-  app.post('/api/rpo', auth.requireAuth, (req, res) => {
-    const clientName = String(req.body?.clientName || '').trim();
-    const monthlyProfit = Number(req.body?.monthlyProfit);
-    const startYear = Number(req.body?.startYear);
-    const startMonth = Number(req.body?.startMonth);
-    const termMonths = Number(req.body?.termMonths);
-    if (!clientName) return res.status(400).json({ error: '案件名（クライアント名）は必須です' });
-    if (!Number.isInteger(monthlyProfit) || monthlyProfit < 0) {
-      return res.status(400).json({ error: '月間粗利は0以上の整数で入力してください' });
-    }
-    if (!isValidYear(startYear) || !isValidMonth(startMonth)) {
-      return res.status(400).json({ error: '契約開始年月が不正です' });
-    }
-    if (termMonths !== 6 && termMonths !== 12) {
-      return res.status(400).json({ error: '契約期間は半年(6)か1年(12)を選択してください' });
-    }
+  app.post('/api/rpo-deals', auth.requireOwner, (req, res) => {
+    const v = validateDealBody(req.body);
+    if (v.error) return res.status(400).json({ error: v.error });
     const result = db
       .prepare(
-        'INSERT INTO rpo_deals (user_id, client_name, monthly_profit, start_year, start_month, term_months) VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO rpo_deals (client_name, monthly_profit, start_year, start_month, term_months) VALUES (?, ?, ?, ?, ?)'
       )
-      .run(req.user.id, clientName, monthlyProfit, startYear, startMonth, termMonths);
+      .run(v.clientName, v.monthlyProfit, v.startYear, v.startMonth, v.termMonths);
     res.json({ id: Number(result.lastInsertRowid) });
   });
 
-  app.delete('/api/rpo/:id', auth.requireAuth, (req, res) => {
+  app.put('/api/rpo-deals/:id', auth.requireOwner, (req, res) => {
+    const v = validateDealBody(req.body);
+    if (v.error) return res.status(400).json({ error: v.error });
     const result = db
-      .prepare('DELETE FROM rpo_deals WHERE id = ? AND user_id = ?')
-      .run(Number(req.params.id), req.user.id);
+      .prepare(
+        'UPDATE rpo_deals SET client_name = ?, monthly_profit = ?, start_year = ?, start_month = ?, term_months = ? WHERE id = ?'
+      )
+      .run(v.clientName, v.monthlyProfit, v.startYear, v.startMonth, v.termMonths, Number(req.params.id));
     if (result.changes === 0) return res.status(404).json({ error: '案件が見つかりません' });
     res.json({ ok: true });
   });
 
+  app.delete('/api/rpo-deals/:id', auth.requireOwner, (req, res) => {
+    // 担当（rpo_assignments）は ON DELETE CASCADE で一緒に削除される
+    const result = db.prepare('DELETE FROM rpo_deals WHERE id = ?').run(Number(req.params.id));
+    if (result.changes === 0) return res.status(404).json({ error: '案件が見つかりません' });
+    res.json({ ok: true });
+  });
+
+  // ---------------- RPO 担当（社員がメイン/サブを選ぶ） ----------------
+
+  app.post('/api/rpo-assignments', auth.requireAuth, (req, res) => {
+    const dealId = Number(req.body?.dealId);
+    const role = String(req.body?.role || '');
+    if (role !== 'main' && role !== 'sub') {
+      return res.status(400).json({ error: '担当はメイン(main)かサブ(sub)を指定してください' });
+    }
+    const deal = db.prepare('SELECT id FROM rpo_deals WHERE id = ?').get(dealId);
+    if (!deal) return res.status(400).json({ error: '指定された案件が存在しません' });
+    try {
+      const result = db
+        .prepare('INSERT INTO rpo_assignments (deal_id, user_id, role) VALUES (?, ?, ?)')
+        .run(dealId, req.user.id, role);
+      res.json({ id: Number(result.lastInsertRowid) });
+    } catch (err) {
+      if (String(err.message).includes('UNIQUE')) {
+        return res.status(409).json({
+          error: 'この担当枠は既に埋まっているか、あなたは既にこの案件を担当しています',
+        });
+      }
+      throw err;
+    }
+  });
+
+  // 自分の担当を外れる（オーナーは誰の担当でも解除できる）
+  app.delete('/api/rpo-assignments/:id', auth.requireAuth, (req, res) => {
+    const id = Number(req.params.id);
+    const result =
+      req.user.role === 'owner'
+        ? db.prepare('DELETE FROM rpo_assignments WHERE id = ?').run(id)
+        : db.prepare('DELETE FROM rpo_assignments WHERE id = ? AND user_id = ?').run(id, req.user.id);
+    if (result.changes === 0) return res.status(404).json({ error: '担当が見つかりません' });
+    res.json({ ok: true });
+  });
+
   // ---------------- 給与計算 ----------------
+
+  // 本人が担当（メイン/サブ）している案件を役割つきで返す
+  function listUserAssignments(userId) {
+    return db
+      .prepare(
+        `SELECT a.role, d.client_name AS clientName, d.monthly_profit AS monthlyProfit,
+                d.start_year AS startYear, d.start_month AS startMonth, d.term_months AS termMonths
+         FROM rpo_assignments a JOIN rpo_deals d ON d.id = a.deal_id
+         WHERE a.user_id = ?
+         ORDER BY d.start_year, d.start_month, d.id`
+      )
+      .all(userId);
+  }
 
   function salaryBreakdown(userId, year, month) {
     const baseRecords = db
@@ -252,8 +352,9 @@ function createApp(dbPath) {
       {
         baseRecords,
         orders: listOrders(userId),
-        deals: listDeals(userId),
+        assignments: listUserAssignments(userId),
         tierPercents: getRpoTierPercents(db),
+        roleShares: getRpoRoleShares(db),
       },
       year,
       month
@@ -272,14 +373,21 @@ function createApp(dbPath) {
 
   // ---------------- 設定（RPO 率。閲覧は全員、変更はオーナー） ----------------
 
-  app.get('/api/settings', auth.requireAuth, (req, res) => {
+  function settingsPayload() {
     const [tier1, tier2, tier3, tier4] = getRpoTierPercents(db);
-    res.json({
+    const shares = getRpoRoleShares(db);
+    return {
       rpoTier1Percent: tier1,
       rpoTier2Percent: tier2,
       rpoTier3Percent: tier3,
       rpoTier4Percent: tier4,
-    });
+      rpoMainPercent: shares.main,
+      rpoSubPercent: shares.sub,
+    };
+  }
+
+  app.get('/api/settings', auth.requireAuth, (req, res) => {
+    res.json(settingsPayload());
   });
 
   app.put('/api/settings', auth.requireOwner, (req, res) => {
@@ -288,6 +396,8 @@ function createApp(dbPath) {
       ['rpoTier2Percent', 'rpo_tier2_percent'],
       ['rpoTier3Percent', 'rpo_tier3_percent'],
       ['rpoTier4Percent', 'rpo_tier4_percent'],
+      ['rpoMainPercent', 'rpo_main_percent'],
+      ['rpoSubPercent', 'rpo_sub_percent'],
     ];
     for (const [bodyKey] of keys) {
       const v = Number(req.body?.[bodyKey]);
@@ -298,13 +408,7 @@ function createApp(dbPath) {
     for (const [bodyKey, settingKey] of keys) {
       setSetting(db, settingKey, Number(req.body[bodyKey]));
     }
-    const [tier1, tier2, tier3, tier4] = getRpoTierPercents(db);
-    res.json({
-      rpoTier1Percent: tier1,
-      rpoTier2Percent: tier2,
-      rpoTier3Percent: tier3,
-      rpoTier4Percent: tier4,
-    });
+    res.json(settingsPayload());
   });
 
   // ---------------- オーナー用（メンバー一覧・メンバー給与） ----------------
