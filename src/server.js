@@ -505,6 +505,26 @@ function createApp(dbPath) {
     res.json(rows);
   });
 
+  // メンバーの権限変更（オーナーのみ）。オーナーが0人にならないようガードする。
+  app.put('/api/admin/users/:id/role', auth.requireOwner, (req, res) => {
+    const id = Number(req.params.id);
+    const role = String(req.body?.role || '');
+    if (role !== 'owner' && role !== 'member') {
+      return res.status(400).json({ error: '権限は owner か member を指定してください' });
+    }
+    const user = db.prepare('SELECT id, name, role FROM users WHERE id = ?').get(id);
+    if (!user) return res.status(404).json({ error: 'ユーザーが見つかりません' });
+    if (user.role === role) return res.json({ id, role });
+    if (user.role === 'owner' && role === 'member') {
+      const owners = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'owner'").get().c;
+      if (owners <= 1) {
+        return res.status(400).json({ error: 'オーナーは最低1人必要です。先に他のメンバーをオーナーにしてください' });
+      }
+    }
+    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id);
+    res.json({ id, role });
+  });
+
   app.get('/api/admin/salary', auth.requireOwner, (req, res) => {
     const userId = Number(req.query.userId);
     const year = Number(req.query.year);
