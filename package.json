@@ -1,0 +1,20 @@
+{
+  "name": "voco-salary-system",
+  "version": "1.0.0",
+  "description": "株式会社勃興 (VOCO) 給与・インセンティブ算出システム",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:41729/git/Tainen/Claude-Code"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
