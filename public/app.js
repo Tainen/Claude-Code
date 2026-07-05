@@ -212,11 +212,12 @@ function salaryBreakdownView(data) {
     const tbody = el('tbody');
     for (const d of rpoRows) {
       for (const deal of d.deals) {
+        const members = deal.members || 1;
         tbody.append(el('tr', {},
           el('td', {}, ym(d.year, d.month)),
           el('td', {}, deal.clientName),
-          el('td', {}, deal.role === 'main' ? 'メイン' : 'サブ'),
-          el('td', { class: 'num' }, yen(deal.monthlyProfit)),
+          el('td', {}, (deal.role === 'main' ? 'メイン' : 'サブ') + (members > 1 ? `（${members}人で分担）` : '')),
+          el('td', { class: 'num' }, yen(deal.sharedProfit ?? deal.monthlyProfit)),
           el('td', { class: 'num' }, `${d.percent}%`),
           el('td', { class: 'num' }, `${deal.share}%`),
           el('td', { class: 'num' }, yen(deal.amount))));
@@ -224,12 +225,14 @@ function salaryBreakdownView(data) {
     }
     wrap.append(
       el('h3', {}, 'RPOインセンティブ内訳（対象3ヶ月・案件別）'),
-      el('p', { class: 'note' }, '適用率は、その月に担当している案件の粗利合計（保有額帯）で決まります。'),
+      el('p', { class: 'note' },
+        '同じ担当に複数人がつく案件は、粗利を人数で等分した額（按分後粗利）で計算されます。' +
+        '適用率は、その月の担当案件の按分後粗利の合計（保有額帯）で決まります。'),
       el('div', { class: 'table-wrap' },
         el('table', {},
           el('thead', {}, el('tr', {},
             el('th', {}, '対象月'), el('th', {}, '案件'), el('th', {}, '担当'),
-            el('th', { class: 'num' }, '月間粗利'), el('th', { class: 'num' }, '適用率'),
+            el('th', { class: 'num' }, '粗利（按分後）'), el('th', { class: 'num' }, '適用率'),
             el('th', { class: 'num' }, '担当割合'), el('th', { class: 'num' }, 'インセンティブ'))),
           tbody))
     );
@@ -343,13 +346,17 @@ async function renderBaseTab(content) {
 
 // ---------- RPO案件 ----------
 
-function assignmentCell(card, deal, assignment, role) {
+// 担当者セル: 複数人の場合は全員を並べ、本人またはオーナーには「外す」ボタンを表示
+function assignmentCell(card, deal, assignments, role) {
   const roleLabel = role === 'main' ? 'メイン' : 'サブ';
-  // 誰かが担当している場合: 名前 + （本人またはオーナーなら）外すボタン
-  if (assignment) {
-    const cell = el('td', {}, assignment.userName);
+  if (!assignments || assignments.length === 0) {
+    return el('td', {}, el('span', { class: 'note', style: 'margin:0;' }, '未定'));
+  }
+  const cell = el('td', {});
+  for (const assignment of assignments) {
+    const row = el('div', {}, assignment.userName);
     if (assignment.userId === me.id || me.role === 'owner') {
-      cell.append(' ', el('button', {
+      row.append(' ', el('button', {
         class: 'danger',
         onclick: async () => {
           const who = assignment.userId === me.id ? '自分' : assignment.userName + ' さん';
@@ -363,36 +370,41 @@ function assignmentCell(card, deal, assignment, role) {
         },
       }, '外す'));
     }
-    return cell;
+    cell.append(row);
   }
-  return el('td', {}, el('span', { class: 'note', style: 'margin:0;' }, '未定'));
+  return cell;
 }
 
-// 自分の担当案件を複数選択で選ぶセクション（メイン/サブそれぞれ複数社を持てる）
+// 自分の担当案件を複数選択で選ぶセクション（メイン/サブそれぞれ複数社を持てる。
+// 同じ担当に複数人がつく案件もあり、その場合は粗利を人数で等分して計算される）
 function myDealsSection(card, deals) {
   const wrap = el('div');
   const dealLabel = (d) =>
     `${d.clientName}（月間粗利 ${yen(d.monthlyProfit)} / ${ym(d.startYear, d.startMonth)}開始 / ${d.termMonths === 6 ? '半年' : '1年'}）`;
+  const roleKey = { main: 'mains', sub: 'subs' };
 
   for (const role of ['main', 'sub']) {
     const roleLabel = role === 'main' ? 'メイン' : 'サブ';
+    const key = roleKey[role];
 
     // 現在の担当一覧
-    const mine = deals.filter((d) => d[role] && d[role].userId === me.id);
+    const mine = deals.filter((d) => d[key].some((a) => a.userId === me.id));
     wrap.append(el('h3', {}, `自分の${roleLabel}案件（${mine.length}社）`));
     if (mine.length === 0) {
       wrap.append(el('p', { class: 'note' }, `${roleLabel}担当の案件はまだありません。下のリストから選んで追加してください。`));
     } else {
       const list = el('div');
       for (const d of mine) {
+        const myAssignment = d[key].find((a) => a.userId === me.id);
+        const others = d[key].length > 1 ? `（${roleLabel}${d[key].length}人で分担）` : '';
         list.append(el('div', { class: 'bulk-bar' },
-          el('span', {}, dealLabel(d)),
+          el('span', {}, dealLabel(d) + others),
           el('button', {
             class: 'danger',
             onclick: async () => {
               if (!confirm(`「${d.clientName}」の${roleLabel}担当を外れますか？`)) return;
               try {
-                await api(`/api/rpo-assignments/${d[role].id}`, { method: 'DELETE' });
+                await api(`/api/rpo-assignments/${myAssignment.id}`, { method: 'DELETE' });
                 renderApp();
               } catch (err) {
                 showMessage(card, err.message, 'error');
@@ -403,11 +415,10 @@ function myDealsSection(card, deals) {
       wrap.append(list);
     }
 
-    // 複数選択の追加フォーム: その担当枠が空いていて、自分がまだ関わっていない案件のみ
+    // 複数選択の追加フォーム: 自分がまだ担当していない案件（他の人が担当中でも相乗り可能）
     const available = deals.filter((d) =>
-      !d[role] &&
-      !(d.main && d.main.userId === me.id) &&
-      !(d.sub && d.sub.userId === me.id));
+      !d.mains.some((a) => a.userId === me.id) &&
+      !d.subs.some((a) => a.userId === me.id));
     if (available.length > 0) {
       const checks = [];
       const addBtn = el('button', { disabled: '' }, `選択した案件を${roleLabel}担当に追加`);
@@ -423,12 +434,14 @@ function myDealsSection(card, deals) {
       for (const d of available) {
         const checkbox = el('input', { type: 'checkbox', onchange: updateBtn });
         checks.push({ checkbox, deal: d });
+        const current = d[key].map((a) => a.userName).join('、');
         tbody.append(el('tr', {},
           el('td', {}, checkbox),
           el('td', {}, d.clientName),
           el('td', { class: 'num' }, yen(d.monthlyProfit)),
           el('td', {}, ym(d.startYear, d.startMonth) + ' 開始'),
-          el('td', {}, d.termMonths === 6 ? '半年' : '1年')));
+          el('td', {}, d.termMonths === 6 ? '半年' : '1年'),
+          el('td', {}, current || el('span', { class: 'note', style: 'margin:0;' }, 'なし'))));
       }
       addBtn.addEventListener('click', async () => {
         const dealIds = checks.filter((c) => c.checkbox.checked).map((c) => c.deal.id);
@@ -447,11 +460,11 @@ function myDealsSection(card, deals) {
           el('table', {},
             el('thead', {}, el('tr', {},
               el('th', {}, '選択'), el('th', {}, '案件名'), el('th', { class: 'num' }, '月間粗利'),
-              el('th', {}, '契約開始'), el('th', {}, '期間'))),
+              el('th', {}, '契約開始'), el('th', {}, '期間'), el('th', {}, `現在の${roleLabel}担当`))),
             tbody)),
         el('div', { style: 'margin-top:10px;' }, addBtn));
     } else {
-      wrap.append(el('p', { class: 'note' }, `現在追加できる案件はありません（${roleLabel}担当の枠が空いている案件がないか、すでに担当済みです）。`));
+      wrap.append(el('p', { class: 'note' }, `現在追加できる案件はありません（すべての案件をすでに担当しています）。`));
     }
   }
   return wrap;
@@ -463,7 +476,8 @@ async function renderRpoTab(content) {
   card.append(el('h2', {}, 'RPO案件'));
   card.append(el('p', { class: 'note' },
     (isOwner ? '案件（名前・月間粗利・契約期間）の登録・編集はオーナーが行います。' : '案件はオーナーが登録します。') +
-    '各案件にメイン担当1名・サブ担当1名がつき、1人がメイン・サブそれぞれ複数社を担当できます。' +
+    '1人がメイン・サブそれぞれ複数社を担当でき、同じ担当に複数人がつく案件もあります' +
+    '（複数人の場合、粗利は人数で等分して計算されます。例: 粗利80万円でメイン2人 → 各40万円分）。' +
     '下のリストにチェックを入れてまとめて追加してください。' +
     'インセンティブは保有額帯ごとの率に、担当割合（メイン/サブ、設定画面で変更可能）を掛けて支給月に支払われます。'));
 
@@ -530,8 +544,8 @@ async function renderRpoTab(content) {
         el('td', { class: 'num' }, yen(d.monthlyProfit)),
         el('td', {}, ym(d.startYear, d.startMonth) + ' 開始'),
         el('td', {}, d.termMonths === 6 ? '半年' : '1年'),
-        assignmentCell(card, d, d.main, 'main'),
-        assignmentCell(card, d, d.sub, 'sub'));
+        assignmentCell(card, d, d.mains, 'main'),
+        assignmentCell(card, d, d.subs, 'sub'));
 
       // オーナーのみ: 編集・削除
       const actions = el('td', {});

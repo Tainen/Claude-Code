@@ -77,14 +77,15 @@ function createDb(filePath) {
       created_at     TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    -- RPO 案件の担当（社員が自分で選ぶ）。各案件にメイン1名・サブ1名まで。
+    -- RPO 案件の担当（社員が自分で選ぶ）。
+    -- 同じ担当（メイン/サブ）に複数人がつく案件もある（粗利は人数で等分して計算）。
+    -- 同一人物が同じ案件を重複して担当することはできない。
     CREATE TABLE IF NOT EXISTS rpo_assignments (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       deal_id    INTEGER NOT NULL REFERENCES rpo_deals(id) ON DELETE CASCADE,
       user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       role       TEXT NOT NULL CHECK (role IN ('main', 'sub')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE (deal_id, role),
       UNIQUE (deal_id, user_id)
     );
 
@@ -95,6 +96,7 @@ function createDb(filePath) {
   `);
 
   migrateLegacyRpoDeals(db);
+  migrateAssignmentsAllowMultiRole(db);
 
   const insertSetting = db.prepare(
     'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)'
@@ -144,6 +146,39 @@ function migrateLegacyRpoDeals(db) {
       SELECT id, client_name, monthly_profit, start_year, start_month, term_months, created_at FROM rpo_deals;
     DROP TABLE rpo_deals;
     ALTER TABLE rpo_deals_new RENAME TO rpo_deals;
+  `);
+  db.exec('PRAGMA foreign_keys = ON');
+}
+
+// 旧スキーマ（UNIQUE(deal_id, role) で各担当1名まで）からの移行。
+// 同じ担当に複数人をつけられるよう、制約を UNIQUE(deal_id, user_id) だけにして再構築する。
+function migrateAssignmentsAllowMultiRole(db) {
+  const uniqueIndexes = db
+    .prepare("SELECT name FROM pragma_index_list('rpo_assignments') WHERE \"unique\" = 1")
+    .all();
+  const hasDealRoleUnique = uniqueIndexes.some((idx) => {
+    const cols = db
+      .prepare('SELECT name FROM pragma_index_info(?)')
+      .all(idx.name)
+      .map((r) => r.name);
+    return cols.length === 2 && cols.includes('deal_id') && cols.includes('role');
+  });
+  if (!hasDealRoleUnique) return;
+
+  db.exec('PRAGMA foreign_keys = OFF');
+  db.exec(`
+    CREATE TABLE rpo_assignments_new (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      deal_id    INTEGER NOT NULL REFERENCES rpo_deals(id) ON DELETE CASCADE,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role       TEXT NOT NULL CHECK (role IN ('main', 'sub')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (deal_id, user_id)
+    );
+    INSERT INTO rpo_assignments_new (id, deal_id, user_id, role, created_at)
+      SELECT id, deal_id, user_id, role, created_at FROM rpo_assignments;
+    DROP TABLE rpo_assignments;
+    ALTER TABLE rpo_assignments_new RENAME TO rpo_assignments;
   `);
   db.exec('PRAGMA foreign_keys = ON');
 }

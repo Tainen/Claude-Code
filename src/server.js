@@ -325,8 +325,8 @@ function createApp(dbPath) {
       )
       .all();
     for (const deal of deals) {
-      deal.main = assignments.find((a) => a.dealId === deal.id && a.role === 'main') || null;
-      deal.sub = assignments.find((a) => a.dealId === deal.id && a.role === 'sub') || null;
+      deal.mains = assignments.filter((a) => a.dealId === deal.id && a.role === 'main');
+      deal.subs = assignments.filter((a) => a.dealId === deal.id && a.role === 'sub');
     }
     return deals;
   }
@@ -382,15 +382,14 @@ function createApp(dbPath) {
       res.json({ id: Number(result.lastInsertRowid) });
     } catch (err) {
       if (String(err.message).includes('UNIQUE')) {
-        return res.status(409).json({
-          error: 'この担当枠は既に埋まっているか、あなたは既にこの案件を担当しています',
-        });
+        return res.status(409).json({ error: 'あなたは既にこの案件を担当しています' });
       }
       throw err;
     }
   });
 
   // 複数案件の担当をまとめて追加（メイン5社・サブ5社のような持ち方に対応）
+  // 同じ担当に複数人がつくことも可能（インセンティブ計算時に粗利を人数で等分）
   app.post('/api/rpo-assignments/bulk', auth.requireAuth, (req, res) => {
     const role = String(req.body?.role || '');
     const dealIds = (Array.isArray(req.body?.dealIds) ? req.body.dealIds : [])
@@ -402,16 +401,12 @@ function createApp(dbPath) {
     if (dealIds.length === 0) {
       return res.status(400).json({ error: '案件を1つ以上選択してください' });
     }
-    // 事前チェック: 案件の存在・担当枠の空き・自分が既に担当していないか
+    // 事前チェック: 案件の存在・自分が既に担当していないか
     const findDeal = db.prepare('SELECT id, client_name AS clientName FROM rpo_deals WHERE id = ?');
-    const findRole = db.prepare('SELECT id FROM rpo_assignments WHERE deal_id = ? AND role = ?');
     const findMine = db.prepare('SELECT id FROM rpo_assignments WHERE deal_id = ? AND user_id = ?');
     for (const dealId of dealIds) {
       const deal = findDeal.get(dealId);
       if (!deal) return res.status(400).json({ error: '指定された案件が存在しません' });
-      if (findRole.get(dealId, role)) {
-        return res.status(409).json({ error: `「${deal.clientName}」の${role === 'main' ? 'メイン' : 'サブ'}担当は既に埋まっています` });
-      }
       if (findMine.get(dealId, req.user.id)) {
         return res.status(409).json({ error: `「${deal.clientName}」は既にあなたが担当しています` });
       }
@@ -441,12 +436,15 @@ function createApp(dbPath) {
 
   // ---------------- 給与計算 ----------------
 
-  // 本人が担当（メイン/サブ）している案件を役割つきで返す
+  // 本人が担当（メイン/サブ）している案件を役割・同担当人数つきで返す。
+  // roleMemberCount はその案件の同じ担当についている人数（粗利の等分に使う）。
   function listUserAssignments(userId) {
     return db
       .prepare(
         `SELECT a.role, d.client_name AS clientName, d.monthly_profit AS monthlyProfit,
-                d.start_year AS startYear, d.start_month AS startMonth, d.term_months AS termMonths
+                d.start_year AS startYear, d.start_month AS startMonth, d.term_months AS termMonths,
+                (SELECT COUNT(*) FROM rpo_assignments a2
+                 WHERE a2.deal_id = a.deal_id AND a2.role = a.role) AS roleMemberCount
          FROM rpo_assignments a JOIN rpo_deals d ON d.id = a.deal_id
          WHERE a.user_id = ?
          ORDER BY d.start_year, d.start_month, d.id`

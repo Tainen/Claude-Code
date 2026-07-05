@@ -169,6 +169,35 @@ test('RPO: 支給月に対象3ヶ月分の粗利×率×担当割合が支払わ�
   assert.equal(jul2.detail[0].percent, 5);
 });
 
+test('RPO: 同じ担当に複数人がつく場合は粗利を人数で等分してから計算する', () => {
+  const tiers = [3, 5, 7, 10];
+  const shares = { main: 80, sub: 20 };
+  // 要件の例: 粗利80万円の案件をメイン2人で分担 → 各40万円として計算
+  const assignments = [
+    { clientName: 'A社', monthlyProfit: 800000, startYear: 2026, startMonth: 3, termMonths: 6, role: 'main', roleMemberCount: 2 },
+  ];
+  const jul = calc.rpoIncentiveForPayout(assignments, 2026, 7, tiers, shares);
+  // 按分後40万 → 〜100万帯 3% × メイン80% × 3ヶ月
+  assert.equal(jul.total, 400000 * 0.03 * 0.8 * 3);
+  assert.equal(jul.detail[0].deals[0].sharedProfit, 400000);
+  assert.equal(jul.detail[0].deals[0].members, 2);
+
+  // サブ3人なら各 1/3
+  const subs = [
+    { clientName: 'B社', monthlyProfit: 900000, startYear: 2026, startMonth: 3, termMonths: 6, role: 'sub', roleMemberCount: 3 },
+  ];
+  const julSub = calc.rpoIncentiveForPayout(subs, 2026, 7, tiers, shares);
+  assert.equal(julSub.total, Math.round(300000 * 0.03 * 0.2) * 3);
+
+  // 保有額帯の判定も按分後の合計で行われる（120万を2人で分担 → 60万 → 3%帯）
+  const shared = [
+    { clientName: 'C社', monthlyProfit: 1200000, startYear: 2026, startMonth: 3, termMonths: 6, role: 'main', roleMemberCount: 2 },
+  ];
+  const julShared = calc.rpoIncentiveForPayout(shared, 2026, 7, tiers, shares);
+  assert.equal(julShared.detail[0].percent, 3);
+  assert.equal(julShared.total, 600000 * 0.03 * 0.8 * 3);
+});
+
 test('RPO: 担当割合はオーナー設定値が反映される (例: 70/30)', () => {
   const tiers = [3, 5, 7, 10];
   const shares = { main: 70, sub: 30 };
