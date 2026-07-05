@@ -368,7 +368,7 @@ function assignmentCell(card, deal, assignment, role) {
   return el('td', {}, el('span', { class: 'note', style: 'margin:0;' }, '未定'));
 }
 
-// 自分の担当案件をプルダウンで選ぶセクション（メイン/サブそれぞれ）
+// 自分の担当案件を複数選択で選ぶセクション（メイン/サブそれぞれ複数社を持てる）
 function myDealsSection(card, deals) {
   const wrap = el('div');
   const dealLabel = (d) =>
@@ -376,12 +376,12 @@ function myDealsSection(card, deals) {
 
   for (const role of ['main', 'sub']) {
     const roleLabel = role === 'main' ? 'メイン' : 'サブ';
-    wrap.append(el('h3', {}, `自分の${roleLabel}案件`));
 
     // 現在の担当一覧
     const mine = deals.filter((d) => d[role] && d[role].userId === me.id);
+    wrap.append(el('h3', {}, `自分の${roleLabel}案件（${mine.length}社）`));
     if (mine.length === 0) {
-      wrap.append(el('p', { class: 'note' }, `${roleLabel}担当の案件はまだありません。下のプルダウンから選んでください。`));
+      wrap.append(el('p', { class: 'note' }, `${roleLabel}担当の案件はまだありません。下のリストから選んで追加してください。`));
     } else {
       const list = el('div');
       for (const d of mine) {
@@ -403,33 +403,55 @@ function myDealsSection(card, deals) {
       wrap.append(list);
     }
 
-    // 選択式の追加フォーム: その担当枠が空いていて、自分がまだ関わっていない案件のみ
+    // 複数選択の追加フォーム: その担当枠が空いていて、自分がまだ関わっていない案件のみ
     const available = deals.filter((d) =>
       !d[role] &&
       !(d.main && d.main.userId === me.id) &&
       !(d.sub && d.sub.userId === me.id));
     if (available.length > 0) {
-      const select = el('select');
+      const checks = [];
+      const addBtn = el('button', { disabled: '' }, `選択した案件を${roleLabel}担当に追加`);
+      const updateBtn = () => {
+        const n = checks.filter((c) => c.checkbox.checked).length;
+        addBtn.textContent = n > 0
+          ? `選択した案件を${roleLabel}担当に追加（${n}社）`
+          : `選択した案件を${roleLabel}担当に追加`;
+        if (n > 0) addBtn.removeAttribute('disabled');
+        else addBtn.setAttribute('disabled', '');
+      };
+      const tbody = el('tbody');
       for (const d of available) {
-        select.append(el('option', { value: d.id }, dealLabel(d)));
+        const checkbox = el('input', { type: 'checkbox', onchange: updateBtn });
+        checks.push({ checkbox, deal: d });
+        tbody.append(el('tr', {},
+          el('td', {}, checkbox),
+          el('td', {}, d.clientName),
+          el('td', { class: 'num' }, yen(d.monthlyProfit)),
+          el('td', {}, ym(d.startYear, d.startMonth) + ' 開始'),
+          el('td', {}, d.termMonths === 6 ? '半年' : '1年')));
       }
-      wrap.append(el('div', { class: 'bulk-bar' },
-        select,
-        el('button', {
-          onclick: async () => {
-            try {
-              await api('/api/rpo-assignments', {
-                method: 'POST',
-                body: JSON.stringify({ dealId: Number(select.value), role }),
-              });
-              renderApp();
-            } catch (err) {
-              showMessage(card, err.message, 'error');
-            }
-          },
-        }, `${roleLabel}案件に追加`)));
+      addBtn.addEventListener('click', async () => {
+        const dealIds = checks.filter((c) => c.checkbox.checked).map((c) => c.deal.id);
+        try {
+          await api('/api/rpo-assignments/bulk', {
+            method: 'POST',
+            body: JSON.stringify({ role, dealIds }),
+          });
+          renderApp();
+        } catch (err) {
+          showMessage(card, err.message, 'error');
+        }
+      });
+      wrap.append(
+        el('div', { class: 'table-scroll' },
+          el('table', {},
+            el('thead', {}, el('tr', {},
+              el('th', {}, '選択'), el('th', {}, '案件名'), el('th', { class: 'num' }, '月間粗利'),
+              el('th', {}, '契約開始'), el('th', {}, '期間'))),
+            tbody)),
+        el('div', { style: 'margin-top:10px;' }, addBtn));
     } else {
-      wrap.append(el('p', { class: 'note' }, `現在選択できる案件はありません（${roleLabel}担当の枠が空いている案件がないか、すでに担当済みです）。`));
+      wrap.append(el('p', { class: 'note' }, `現在追加できる案件はありません（${roleLabel}担当の枠が空いている案件がないか、すでに担当済みです）。`));
     }
   }
   return wrap;
@@ -441,7 +463,8 @@ async function renderRpoTab(content) {
   card.append(el('h2', {}, 'RPO案件'));
   card.append(el('p', { class: 'note' },
     (isOwner ? '案件（名前・月間粗利・契約期間）の登録・編集はオーナーが行います。' : '案件はオーナーが登録します。') +
-    '各案件にメイン担当1名・サブ担当1名がつけます。下のプルダウンから自分のメイン案件・サブ案件を選んでください。' +
+    '各案件にメイン担当1名・サブ担当1名がつき、1人がメイン・サブそれぞれ複数社を担当できます。' +
+    '下のリストにチェックを入れてまとめて追加してください。' +
     'インセンティブは保有額帯ごとの率に、担当割合（メイン/サブ、設定画面で変更可能）を掛けて支給月に支払われます。'));
 
   // ---- オーナー用: 新規登録フォーム ----
@@ -645,7 +668,7 @@ function monthlySlotsChart(orders, year) {
       const bar = svgEl('path', {
         d: `M${x},${baseY} L${x},${topY + r} Q${x},${topY} ${x + r},${topY} ` +
           `L${x + barW - r},${topY} Q${x + barW},${topY} ${x + barW},${topY + r} L${x + barW},${baseY} Z`,
-        fill: '#7c3aed',
+        fill: '#ea580c',
       });
       bar.append(svgEl('title', {}, `${year}年${i + 1}月: ${counts[i]}枠`));
       svg.append(bar);

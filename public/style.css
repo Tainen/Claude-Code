@@ -1,18 +1,19 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* 白基調 + コーポレートカラー（紫〜マゼンタのグラデーション）
-   ブランドカラーを変えたいときは --accent / --accent2 を差し替える */
+/* 黒×オレンジのコーポレートカラー（白ベース）
+   ブランドカラーを変えたいときは --accent / --black を差し替える */
 :root {
   --bg: #ffffff;
-  --bg-sub: #fafafb;
+  --bg-sub: #f7f7f6;
   --card: #ffffff;
-  --text: #1a2233;
-  --muted: #6b7280;
-  --accent: #7c3aed;
-  --accent2: #e0399f;
-  --accent-grad: linear-gradient(135deg, #7c3aed, #e0399f);
-  --accent-soft: #f5f0fe;
-  --border: #e5e7eb;
+  --text: #16181d;
+  --muted: #6f7480;
+  --black: #16181d;
+  --black-hover: #2b2f38;
+  --accent: #ea580c;
+  --accent-dark: #c2410c;
+  --accent-soft: #fff3ea;
+  --border: #e6e6e3;
   --danger: #c0392b;
   --ok: #1e8e4e;
 }
@@ -27,19 +28,19 @@ body {
 .container { max-width: 1000px; margin: 0 auto; padding: 16px; }
 
 header.appbar {
-  background: #fff;
-  color: var(--text);
+  background: var(--black);
+  color: #fff;
   padding: 14px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  border-bottom: 1px solid var(--border);
 }
 header.appbar h1 {
   font-size: 17px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  font-weight: 700;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -48,51 +49,59 @@ header.appbar h1::before {
   content: "";
   width: 14px;
   height: 14px;
-  border-radius: 4px;
-  background: var(--accent-grad);
+  border-radius: 3px;
+  background: var(--accent);
   flex: none;
 }
-header.appbar .who { font-size: 13px; color: var(--muted); }
+header.appbar .who { font-size: 13px; color: #c8cad0; }
 header.appbar button {
-  background: #fff;
-  color: var(--text);
-  border: 1px solid var(--border);
+  background: transparent;
+  color: #fff;
+  border: 1px solid #3d424d;
 }
-header.appbar button:hover { background: var(--bg-sub); color: var(--text); }
+header.appbar button:hover { background: #2b2f38; border-color: #565c69; }
 
 nav.tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin: 16px 0;
+  gap: 6px;
+  margin: 18px 0;
 }
 nav.tabs button {
   background: #fff;
   border: 1px solid var(--border);
   color: var(--muted);
-  padding: 8px 14px;
-  border-radius: 8px;
+  padding: 8px 15px;
+  border-radius: 999px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13.5px;
+  font-weight: 500;
 }
-nav.tabs button:hover { background: var(--accent-soft); color: var(--accent); }
+nav.tabs button:hover { border-color: var(--accent); color: var(--accent); background: #fff; }
 nav.tabs button.active {
-  background: var(--accent-grad);
-  border-color: transparent;
+  background: var(--black);
+  border-color: var(--black);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
+  box-shadow: inset 0 -3px 0 var(--accent);
 }
 
 .card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 14px;
+  padding: 22px;
   margin-bottom: 16px;
-  box-shadow: 0 1px 2px rgba(20, 20, 40, 0.04);
+  box-shadow: 0 1px 3px rgba(22, 24, 29, 0.05);
 }
-.card h2 { font-size: 16px; margin-bottom: 12px; }
-.card h3 { font-size: 14px; margin: 16px 0 8px; color: var(--muted); }
+.card h2 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  padding-left: 10px;
+  border-left: 3px solid var(--accent);
+  letter-spacing: 0.02em;
+}
+.card h3 { font-size: 13.5px; margin: 18px 0 8px; color: var(--muted); letter-spacing: 0.04em; }
 
 .note { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
 
@@ -121,25 +130,27 @@ input[type="checkbox"] {
 }
 
 button {
-  padding: 9px 16px;
+  padding: 9px 18px;
   border: none;
   border-radius: 8px;
-  background: var(--accent-grad);
+  background: var(--black);
   color: #fff;
   font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s ease;
 }
-button:hover { filter: brightness(0.92); }
-button:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
-button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 4px 10px; font-size: 12px; }
-button.danger:hover { background: var(--danger); color: #fff; filter: none; }
+button:hover { background: var(--accent); }
+button:disabled { opacity: 0.4; cursor: not-allowed; background: var(--black); }
+button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 4px 10px; font-size: 12px; font-weight: 500; }
+button.danger:hover { background: var(--danger); color: #fff; }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
-th { color: var(--muted); font-size: 12px; font-weight: 600; background: var(--bg-sub); }
+th { color: var(--muted); font-size: 11.5px; font-weight: 600; background: var(--bg-sub); letter-spacing: 0.05em; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .table-wrap { overflow-x: auto; }
-.table-scroll { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+.table-scroll { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; }
 .table-scroll table { font-size: 13.5px; }
 .table-scroll th { position: sticky; top: 0; }
 
@@ -149,11 +160,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .salary-total {
   font-size: 26px;
-  font-weight: 700;
-  background: var(--accent-grad);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  font-weight: 800;
+  color: var(--accent);
 }
 .salary-grid {
   display: grid;
@@ -163,12 +171,12 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .salary-grid .item {
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 14px;
   background: var(--bg-sub);
 }
 .salary-grid .item .label { font-size: 12px; color: var(--muted); }
-.salary-grid .item .value { font-size: 20px; font-weight: 600; }
+.salary-grid .item .value { font-size: 20px; font-weight: 700; }
 
 .auth-box { max-width: 440px; margin: 60px auto; }
 .auth-box .field { margin-bottom: 12px; }
@@ -183,8 +191,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   padding: 1px 8px;
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
-  border: 1px solid #ddd0f8;
+  color: var(--accent-dark);
+  border: 1px solid #f8d3b8;
+  font-weight: 600;
 }
 
 .chart-box { margin-top: 8px; }
