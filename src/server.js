@@ -390,6 +390,44 @@ function createApp(dbPath) {
     }
   });
 
+  // 複数案件の担当をまとめて追加（メイン5社・サブ5社のような持ち方に対応）
+  app.post('/api/rpo-assignments/bulk', auth.requireAuth, (req, res) => {
+    const role = String(req.body?.role || '');
+    const dealIds = (Array.isArray(req.body?.dealIds) ? req.body.dealIds : [])
+      .map(Number)
+      .filter(Number.isInteger);
+    if (role !== 'main' && role !== 'sub') {
+      return res.status(400).json({ error: '担当はメイン(main)かサブ(sub)を指定してください' });
+    }
+    if (dealIds.length === 0) {
+      return res.status(400).json({ error: '案件を1つ以上選択してください' });
+    }
+    // 事前チェック: 案件の存在・担当枠の空き・自分が既に担当していないか
+    const findDeal = db.prepare('SELECT id, client_name AS clientName FROM rpo_deals WHERE id = ?');
+    const findRole = db.prepare('SELECT id FROM rpo_assignments WHERE deal_id = ? AND role = ?');
+    const findMine = db.prepare('SELECT id FROM rpo_assignments WHERE deal_id = ? AND user_id = ?');
+    for (const dealId of dealIds) {
+      const deal = findDeal.get(dealId);
+      if (!deal) return res.status(400).json({ error: '指定された案件が存在しません' });
+      if (findRole.get(dealId, role)) {
+        return res.status(409).json({ error: `「${deal.clientName}」の${role === 'main' ? 'メイン' : 'サブ'}担当は既に埋まっています` });
+      }
+      if (findMine.get(dealId, req.user.id)) {
+        return res.status(409).json({ error: `「${deal.clientName}」は既にあなたが担当しています` });
+      }
+    }
+    const insert = db.prepare('INSERT INTO rpo_assignments (deal_id, user_id, role) VALUES (?, ?, ?)');
+    db.exec('BEGIN');
+    try {
+      for (const dealId of dealIds) insert.run(dealId, req.user.id, role);
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    res.json({ count: dealIds.length });
+  });
+
   // 自分の担当を外れる（オーナーは誰の担当でも解除できる）
   app.delete('/api/rpo-assignments/:id', auth.requireAuth, (req, res) => {
     const id = Number(req.params.id);
