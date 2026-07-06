@@ -274,6 +274,30 @@ function createApp(dbPath) {
     res.json({ count: items.length });
   });
 
+  // 自分の受注を編集（過去月の分も枠数・受注金額・受注年月を後から更新できる）
+  app.put('/api/orders/:id', auth.requireAuth, (req, res) => {
+    const slots = Number(req.body?.slots);
+    const amount = Number(req.body?.amount ?? 0);
+    const orderYear = Number(req.body?.orderYear);
+    const orderMonth = Number(req.body?.orderMonth);
+    if (!Number.isInteger(slots) || slots < 1) {
+      return res.status(400).json({ error: '枠数は1以上の整数で入力してください' });
+    }
+    if (!Number.isInteger(amount) || amount < 0) {
+      return res.status(400).json({ error: '受注金額は0以上の整数で入力してください' });
+    }
+    if (!isValidYear(orderYear) || !isValidMonth(orderMonth)) {
+      return res.status(400).json({ error: '受注年月が不正です' });
+    }
+    const result = db
+      .prepare(
+        'UPDATE event_orders SET slots = ?, amount = ?, order_year = ?, order_month = ? WHERE id = ? AND user_id = ?'
+      )
+      .run(slots, amount, orderYear, orderMonth, Number(req.params.id), req.user.id);
+    if (result.changes === 0) return res.status(404).json({ error: '受注が見つかりません' });
+    res.json({ ok: true });
+  });
+
   // 自分の受注を一括削除
   app.post('/api/orders/delete', auth.requireAuth, (req, res) => {
     const ids = (Array.isArray(req.body?.ids) ? req.body.ids : [])
