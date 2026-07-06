@@ -915,7 +915,7 @@ function profitChart(months, year) {
     const x = cx - barW / 2;
     const baseY = m.top + plotH;
     const active = d.total > 0 || d.baseSalary > 0;
-    const color = d.surplus ? '#16181d' : '#c0392b';
+    const color = d.surplus ? '#2563eb' : '#c0392b';
     if (active) {
       const barH = Math.max((plotH * d.total) / yMax, d.total > 0 ? 2 : 2);
       const topY = baseY - barH;
@@ -951,7 +951,7 @@ function profitLegend(months) {
   const swatch = (color) =>
     el('span', { style: `display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};margin-right:4px;vertical-align:-1px;` });
   return el('p', { class: 'note' },
-    swatch('#16181d'), `黒字（${surplusCount}ヶ月）　`,
+    swatch('#2563eb'), `黒字（${surplusCount}ヶ月）　`,
     swatch('#c0392b'), `赤字（${deficitCount}ヶ月）`);
 }
 
@@ -961,7 +961,7 @@ async function renderProfitTab(content) {
   card.append(el('h2', {}, '損益グラフ（自分）'));
   card.append(el('p', { class: 'note' },
     '月次粗利 = RPO保有額（按分後粗利 × メイン/サブ割合） + イベント受注金額の50%（開催月に計上）。' +
-    '基本給が「粗利 × 損益ライン%」以内なら黒字（黒）、超えると赤字（赤）で表示します。' +
+    '基本給が「粗利 × 損益ライン%」以内なら黒字（青）、超えると赤字（赤）で表示します。' +
     '棒にカーソルを合わせると内訳が見られます。'));
 
   const yearSel = el('select');
