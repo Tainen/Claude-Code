@@ -255,7 +255,8 @@ function rpoIncentiveForPayout(assignments, payoutYear, payoutMonth, tierPercent
 // ---------------- 粗利の可視化（損益） ----------------
 // 1年分の月次粗利と損益判定を返す。
 //   RPO分: その月に稼働中の担当案件の保有額（按分後粗利 × 担当割合）
-//   イベント分: その月に「受注した」イベントの受注金額 × 50%（開催月・振込日は無関係）
+//   イベント分: その月に「受注した」イベントの受注合計（枠数 × 枠単価）× 50%
+//              （開催月・振込日は無関係）
 //   判定: 基本給 <= 粗利合計 × thresholdPercent% → 黒字 (surplus: true)
 function profitSeriesForYear({ assignments, orders, baseRecords, roleShares, thresholdPercent }, year) {
   const series = [];
@@ -265,7 +266,7 @@ function profitSeriesForYear({ assignments, orders, baseRecords, roleShares, thr
       .reduce((sum, a) => sum + weightedProfit(a, roleShares), 0);
     const eventProfit = orders
       .filter((o) => o.orderYear === year && o.orderMonth === month)
-      .reduce((sum, o) => sum + ((o.amount || 0) * EVENT_PROFIT_PERCENT) / 100, 0);
+      .reduce((sum, o) => sum + (o.slots * (o.amount || 0) * EVENT_PROFIT_PERCENT) / 100, 0);
     const total = Math.round(rpoProfit + eventProfit);
     const baseSalary = baseSalaryForMonth(baseRecords, year, month);
     const surplus = baseSalary <= (total * thresholdPercent) / 100;
