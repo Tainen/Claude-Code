@@ -115,6 +115,7 @@ const TABS = [
   { id: 'base', label: '基本給', render: renderBaseTab },
   { id: 'rpo', label: 'RPO案件', render: renderRpoTab },
   { id: 'orders', label: 'イベント受注', render: renderOrdersTab },
+  { id: 'profit', label: '損益グラフ', render: renderProfitTab },
   { id: 'events', label: 'イベント管理', render: renderEventsTab, ownerOnly: true },
   { id: 'settings', label: '設定', render: renderSettingsTab, ownerOnly: true },
   { id: 'members', label: 'メンバー管理', render: renderMembersTab, ownerOnly: true },
@@ -207,7 +208,7 @@ function salaryBreakdownView(data) {
     );
   }
 
-  const rpoRows = data.rpoIncentive.detail.filter((d) => d.monthlyProfit > 0);
+  const rpoRows = data.rpoIncentive.detail.filter((d) => (d.heldAmount ?? 0) > 0);
   if (rpoRows.length > 0) {
     const tbody = el('tbody');
     for (const d of rpoRows) {
@@ -218,22 +219,24 @@ function salaryBreakdownView(data) {
           el('td', {}, deal.clientName),
           el('td', {}, (deal.role === 'main' ? 'メイン' : 'サブ') + (members > 1 ? `（${members}人で分担）` : '')),
           el('td', { class: 'num' }, yen(deal.sharedProfit ?? deal.monthlyProfit)),
-          el('td', { class: 'num' }, `${d.percent}%`),
           el('td', { class: 'num' }, `${deal.share}%`),
+          el('td', { class: 'num' }, yen(deal.weightedProfit)),
+          el('td', { class: 'num' }, `${d.percent}%`),
           el('td', { class: 'num' }, yen(deal.amount))));
       }
     }
     wrap.append(
       el('h3', {}, 'RPOインセンティブ内訳（対象3ヶ月・案件別）'),
       el('p', { class: 'note' },
-        '同じ担当に複数人がつく案件は、粗利を人数で等分した額（按分後粗利）で計算されます。' +
-        '適用率は、その月の担当案件の按分後粗利の合計（保有額帯）で決まります。'),
+        '保有額 = 按分後粗利（複数人担当は人数で等分）× 担当割合（メイン/サブ）。' +
+        '適用率は、その月の保有額の合計がどの帯（50万円刻み）に入るかで決まります。'),
       el('div', { class: 'table-wrap' },
         el('table', {},
           el('thead', {}, el('tr', {},
             el('th', {}, '対象月'), el('th', {}, '案件'), el('th', {}, '担当'),
-            el('th', { class: 'num' }, '粗利（按分後）'), el('th', { class: 'num' }, '適用率'),
-            el('th', { class: 'num' }, '担当割合'), el('th', { class: 'num' }, 'インセンティブ'))),
+            el('th', { class: 'num' }, '按分後粗利'), el('th', { class: 'num' }, '担当割合'),
+            el('th', { class: 'num' }, '保有額換算'), el('th', { class: 'num' }, '適用率'),
+            el('th', { class: 'num' }, 'インセンティブ'))),
           tbody))
     );
   }
@@ -707,8 +710,9 @@ async function renderOrdersTab(content) {
   const regCard = el('div', { class: 'card' });
   regCard.append(el('h2', {}, '採用イベントの受注登録（自分の実績）'));
   regCard.append(el('p', { class: 'note' },
-    '受注したイベントにチェックを入れ、枠数を入力してまとめて登録できます。' +
-    '同じ受注月の合計枠数で単価が決まります: 1〜5枠目 2万円 / 6〜10枠目 4万円 / 11枠目以降 6万円。' +
+    '受注したイベントにチェックを入れ、枠数といくらで受注したか（受注金額）を入力してまとめて登録できます。' +
+    '受注金額は損益グラフの粗利計算（受注金額の50%を開催月に計上）に使われます。' +
+    'インセンティブは同じ受注月の合計枠数で単価が決まります: 1〜5枠目 2万円 / 6〜10枠目 4万円 / 11枠目以降 6万円。' +
     '単価はイベント開催日が早い順に割り当てられ、開催月の翌月入金後、直近の支給月（1月・4月・7月・10月）に反映されます。'));
 
   const yearSel = el('select');
@@ -749,7 +753,7 @@ async function renderOrdersTab(content) {
     if (events.length === 0) {
       eventArea.append(el('p', { class: 'note' }, 'イベントが未登録です（オーナーに登録を依頼してください）。'));
     } else {
-      const rows = []; // { checkbox, slotsInput, event }
+      const rows = []; // { checkbox, slotsInput, amountInput, event }
       const updateRegisterBtn = () => {
         const anyChecked = rows.some((r) => r.checkbox.checked);
         if (anyChecked) registerBtn.removeAttribute('disabled');
@@ -759,27 +763,36 @@ async function renderOrdersTab(content) {
       for (const ev of events) {
         const checkbox = el('input', { type: 'checkbox', onchange: () => {
           slotsInput.disabled = !checkbox.checked;
+          amountInput.disabled = !checkbox.checked;
           updateRegisterBtn();
         } });
         const slotsInput = el('input', { type: 'number', min: 1, step: 1, value: 1, style: 'width:80px;' });
+        const amountInput = el('input', { type: 'number', min: 0, step: 1, placeholder: '例: 500000', style: 'width:130px;' });
         slotsInput.disabled = true;
-        rows.push({ checkbox, slotsInput, event: ev });
+        amountInput.disabled = true;
+        rows.push({ checkbox, slotsInput, amountInput, event: ev });
         tbody.append(el('tr', {},
           el('td', {}, checkbox),
           el('td', {}, ev.eventDate),
           el('td', {}, ev.name),
-          el('td', {}, slotsInput)));
+          el('td', {}, slotsInput),
+          el('td', {}, amountInput)));
       }
       eventArea.append(el('div', { class: 'table-scroll' },
         el('table', {},
           el('thead', {}, el('tr', {},
-            el('th', {}, '選択'), el('th', {}, '開催日'), el('th', {}, 'イベント名'), el('th', {}, '枠数'))),
+            el('th', {}, '選択'), el('th', {}, '開催日'), el('th', {}, 'イベント名'),
+            el('th', {}, '枠数'), el('th', {}, '受注金額（円）'))),
           tbody)));
 
       registerBtn.addEventListener('click', async () => {
         const items = rows
           .filter((r) => r.checkbox.checked)
-          .map((r) => ({ eventId: r.event.id, slots: Number(r.slotsInput.value) }));
+          .map((r) => ({
+            eventId: r.event.id,
+            slots: Number(r.slotsInput.value),
+            amount: Number(r.amountInput.value || 0),
+          }));
         try {
           const result = await api('/api/orders/bulk', {
             method: 'POST',
@@ -821,14 +834,16 @@ async function renderOrdersTab(content) {
           el('td', {}, o.eventName),
           el('td', {}, o.eventDate),
           el('td', {}, ym(o.orderYear, o.orderMonth)),
-          el('td', { class: 'num' }, `${o.slots}枠`)));
+          el('td', { class: 'num' }, `${o.slots}枠`),
+          el('td', { class: 'num' }, yen(o.amount))));
       }
       listArea.append(
         el('div', { class: 'table-wrap' },
           el('table', {},
             el('thead', {}, el('tr', {},
               el('th', {}, selectAll), el('th', {}, 'イベント'), el('th', {}, '開催日'),
-              el('th', {}, '受注月'), el('th', { class: 'num' }, '枠数'))),
+              el('th', {}, '受注月'), el('th', { class: 'num' }, '枠数'),
+              el('th', { class: 'num' }, '受注金額'))),
             tbody)),
         el('div', { style: 'margin-top:12px;' }, deleteBtn));
 
@@ -859,6 +874,135 @@ async function renderOrdersTab(content) {
   } catch (err) {
     showMessage(regCard, err.message, 'error');
   }
+}
+
+// ---------- 損益グラフ ----------
+
+// 月次粗利の棒グラフ。黒字の月は黒、赤字の月は赤で表示する。
+function profitChart(months, year) {
+  const W = 720, H = 260;
+  const m = { top: 24, right: 8, bottom: 28, left: 64 };
+  const plotW = W - m.left - m.right;
+  const plotH = H - m.top - m.bottom;
+  const rawMax = Math.max(...months.map((d) => d.total), 100000);
+  const step = Math.ceil(rawMax / 4 / 100000) * 100000;
+  const yMax = step * 4;
+
+  const svg = svgEl('svg', {
+    viewBox: `0 0 ${W} ${H}`,
+    role: 'img',
+    'aria-label': `${year}年の月次粗利（黒字/赤字）`,
+  });
+
+  for (let i = 0; i <= 4; i++) {
+    const value = (yMax / 4) * i;
+    const y = m.top + plotH - (plotH * value) / yMax;
+    svg.append(svgEl('line', {
+      x1: m.left, x2: m.left + plotW, y1: y, y2: y,
+      stroke: i === 0 ? '#d1d5db' : '#eceef1', 'stroke-width': 1,
+    }));
+    svg.append(svgEl('text', {
+      x: m.left - 6, y: y + 4, 'text-anchor': 'end',
+      'font-size': 11, fill: '#6b7280',
+    }, value >= 10000 ? `${value / 10000}万` : String(value)));
+  }
+
+  const slotW = plotW / 12;
+  const barW = Math.min(34, slotW * 0.62);
+  for (let i = 0; i < 12; i++) {
+    const d = months[i];
+    const cx = m.left + slotW * i + slotW / 2;
+    const x = cx - barW / 2;
+    const baseY = m.top + plotH;
+    const active = d.total > 0 || d.baseSalary > 0;
+    const color = d.surplus ? '#2563eb' : '#c0392b';
+    if (active) {
+      const barH = Math.max((plotH * d.total) / yMax, d.total > 0 ? 2 : 2);
+      const topY = baseY - barH;
+      const r = Math.min(4, barH);
+      const bar = svgEl('path', {
+        d: `M${x},${baseY} L${x},${topY + r} Q${x},${topY} ${x + r},${topY} ` +
+          `L${x + barW - r},${topY} Q${x + barW},${topY} ${x + barW},${topY + r} L${x + barW},${baseY} Z`,
+        fill: color,
+      });
+      bar.append(svgEl('title', {},
+        `${year}年${i + 1}月 ${d.surplus ? '黒字' : '赤字'}\n` +
+        `粗利合計: ${yen(d.total)}（RPO ${yen(d.rpoProfit)} / イベント ${yen(d.eventProfit)}）\n` +
+        `基本給: ${yen(d.baseSalary)}`));
+      svg.append(bar);
+      if (d.total > 0) {
+        svg.append(svgEl('text', {
+          x: cx, y: topY - 6, 'text-anchor': 'middle',
+          'font-size': 11, fill: '#6b7280',
+        }, `${Math.round(d.total / 10000)}万`));
+      }
+    }
+    svg.append(svgEl('text', {
+      x: cx, y: baseY + 18, 'text-anchor': 'middle',
+      'font-size': 11, fill: '#6b7280',
+    }, `${i + 1}月`));
+  }
+  return svg;
+}
+
+function profitLegend(months) {
+  const surplusCount = months.filter((d) => (d.total > 0 || d.baseSalary > 0) && d.surplus).length;
+  const deficitCount = months.filter((d) => (d.total > 0 || d.baseSalary > 0) && !d.surplus).length;
+  const swatch = (color) =>
+    el('span', { style: `display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};margin-right:4px;vertical-align:-1px;` });
+  return el('p', { class: 'note' },
+    swatch('#2563eb'), `黒字（${surplusCount}ヶ月）　`,
+    swatch('#c0392b'), `赤字（${deficitCount}ヶ月）`);
+}
+
+async function renderProfitTab(content) {
+  const now = new Date();
+  const card = el('div', { class: 'card' });
+  card.append(el('h2', {}, '損益グラフ（自分）'));
+  card.append(el('p', { class: 'note' },
+    '月次粗利 = RPO保有額（按分後粗利 × メイン/サブ割合） + イベント受注金額の50%（開催月に計上）。' +
+    '基本給が「粗利 × 損益ライン%」以内なら黒字（青）、超えると赤字（赤）で表示します。' +
+    '棒にカーソルを合わせると内訳が見られます。'));
+
+  const yearSel = el('select');
+  yearOptions(yearSel, now.getFullYear() - 2, now.getFullYear() + 2, now.getFullYear());
+  const myArea = el('div', { class: 'chart-box' });
+  card.append(
+    el('div', { class: 'bulk-bar' }, el('div', { class: 'field' }, el('label', {}, '年'), yearSel)),
+    myArea);
+  content.append(card);
+
+  const ownerCard = me.role === 'owner' ? el('div', { class: 'card' }) : null;
+  if (ownerCard) {
+    ownerCard.append(
+      el('h2', {}, '全メンバーの損益（オーナー）'),
+      el('p', { class: 'note' }, '選択中の年について、メンバー全員の月次粗利と黒字/赤字を表示します。'));
+    content.append(ownerCard);
+  }
+  const ownerArea = ownerCard ? el('div') : null;
+  if (ownerCard) ownerCard.append(ownerArea);
+
+  const load = async () => {
+    const year = Number(yearSel.value);
+    try {
+      const data = await api(`/api/profit?year=${year}`);
+      myArea.replaceChildren(profitLegend(data.months), profitChart(data.months, year));
+      if (ownerArea) {
+        const all = await api(`/api/admin/profit?year=${year}`);
+        ownerArea.replaceChildren();
+        for (const u of all.users) {
+          ownerArea.append(
+            el('h3', {}, `${u.userName} さん`),
+            profitLegend(u.months),
+            el('div', { class: 'chart-box' }, profitChart(u.months, year)));
+        }
+      }
+    } catch (err) {
+      showMessage(card, err.message, 'error');
+    }
+  };
+  yearSel.addEventListener('change', load);
+  load();
 }
 
 // ---------- イベント管理（オーナー） ----------
@@ -967,16 +1111,22 @@ async function renderSettingsTab(content) {
   card.append(el('h2', {}, '設定（オーナー）'));
 
   const tierFields = [
-    ['rpoTier1Percent', '〜100万円'],
-    ['rpoTier2Percent', '100万円超〜150万円'],
-    ['rpoTier3Percent', '150万円超〜200万円'],
-    ['rpoTier4Percent', '200万円超'],
+    ['rpoTier1Percent', '〜50万円'],
+    ['rpoTier2Percent', '50万円超〜100万円'],
+    ['rpoTier3Percent', '100万円超〜150万円'],
+    ['rpoTier4Percent', '150万円超〜200万円'],
+    ['rpoTier5Percent', '200万円超〜250万円'],
+    ['rpoTier6Percent', '250万円超〜300万円'],
+    ['rpoTier7Percent', '300万円超'],
   ];
   const shareFields = [
     ['rpoMainPercent', 'メイン担当'],
     ['rpoSubPercent', 'サブ担当'],
   ];
-  const allFields = [...tierFields, ...shareFields];
+  const profitFields = [
+    ['profitThresholdPercent', '損益ライン'],
+  ];
+  const allFields = [...tierFields, ...shareFields, ...profitFields];
   const inputs = {};
   for (const [key] of allFields) {
     inputs[key] = el('input', { type: 'number', min: 0, max: 100, step: 0.1 });
@@ -1007,13 +1157,25 @@ async function renderSettingsTab(content) {
     shareRow.append(el('div', { class: 'field' }, el('label', {}, `${label} (%)`), inputs[key]));
   }
 
+  const profitRow = el('div', { class: 'inline', style: 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;' });
+  for (const [key, label] of profitFields) {
+    profitRow.append(el('div', { class: 'field' }, el('label', {}, `${label} (%)`), inputs[key]));
+  }
+
   form.append(
-    el('h3', {}, 'RPO: 保有額帯ごとの率'),
-    el('p', { class: 'note' }, '月間粗利の保有額帯ごとに、インセンティブとして支給するパーセンテージを設定します。'),
+    el('h3', {}, 'RPO: 保有額帯ごとの率（50万円刻み）'),
+    el('p', { class: 'note' },
+      '保有額（按分後粗利 × 担当割合の合計）の帯ごとに、インセンティブとして支給するパーセンテージを設定します。'),
     tierRow,
     el('h3', {}, 'RPO: 担当割合（メイン / サブ）'),
-    el('p', { class: 'note' }, '各案件のインセンティブを、メイン担当とサブ担当にどの割合で配分するかを設定します（初期値: メイン80% / サブ20%）。'),
+    el('p', { class: 'note' },
+      '保有額の換算とインセンティブ配分に使う割合です（初期値: メイン80% / サブ20%）。' +
+      '例: メインで月100万の案件を2つ → 保有額 160万円。'),
     shareRow,
+    el('h3', {}, '損益判定ライン'),
+    el('p', { class: 'note' },
+      '損益グラフの黒字/赤字の判定に使います。基本給が「月次粗利 × この%」以内なら黒字（初期値: 30%）。'),
+    profitRow,
     el('h3', {}, 'アカウント登録の招待コード'),
     el('p', { class: 'note' },
       '新しく社員がアカウント登録するときに必要なコードです。登録してほしい社員にだけ共有してください。' +

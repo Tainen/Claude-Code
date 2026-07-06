@@ -117,14 +117,43 @@ test('基本給: 最初に登録した額が変更まで毎月続く', () => {
 
 // ---------------- RPO ----------------
 
-test('RPO: 保有粗利帯ごとの率', () => {
-  const tiers = [3, 5, 7, 10];
-  assert.equal(calc.rpoTierPercent(1000000, tiers), 3); // 〜100万
-  assert.equal(calc.rpoTierPercent(1000001, tiers), 5); // 100万超〜150万
-  assert.equal(calc.rpoTierPercent(1500000, tiers), 5);
-  assert.equal(calc.rpoTierPercent(1500001, tiers), 7); // 150万超〜200万
-  assert.equal(calc.rpoTierPercent(2000000, tiers), 7);
-  assert.equal(calc.rpoTierPercent(2000001, tiers), 10); // 200万超
+test('RPO: 保有額帯（50万円刻み7段階）ごとの率', () => {
+  const tiers = [2, 3, 4, 5, 6, 7, 8];
+  assert.equal(calc.rpoTierPercent(500000, tiers), 2); // 〜50万
+  assert.equal(calc.rpoTierPercent(500001, tiers), 3); // 50万超〜100万
+  assert.equal(calc.rpoTierPercent(1000000, tiers), 3);
+  assert.equal(calc.rpoTierPercent(1500000, tiers), 4); // 100万超〜150万
+  assert.equal(calc.rpoTierPercent(2000000, tiers), 5); // 150万超〜200万
+  assert.equal(calc.rpoTierPercent(2500000, tiers), 6); // 200万超〜250万
+  assert.equal(calc.rpoTierPercent(3000000, tiers), 7); // 250万超〜300万
+  assert.equal(calc.rpoTierPercent(3000001, tiers), 8); // 300万超
+});
+
+test('RPO: 保有額はメイン80%・サブ20%で換算される（要件の例）', () => {
+  const shares = { main: 80, sub: 20 };
+  // メインで100万円の案件を2つ → 160万円の保有
+  const twoMains = [
+    { clientName: 'A', monthlyProfit: 1000000, startYear: 2026, startMonth: 1, termMonths: 12, role: 'main' },
+    { clientName: 'B', monthlyProfit: 1000000, startYear: 2026, startMonth: 1, termMonths: 12, role: 'main' },
+  ];
+  const held2 = twoMains.reduce((s, a) => s + calc.weightedProfit(a, shares), 0);
+  assert.equal(held2, 1600000); // → 150万超〜200万帯
+
+  // メイン100万×2 + サブ100万×2 → 80+80+20+20 = 200万円の保有
+  const four = [
+    ...twoMains,
+    { clientName: 'C', monthlyProfit: 1000000, startYear: 2026, startMonth: 1, termMonths: 12, role: 'sub' },
+    { clientName: 'D', monthlyProfit: 1000000, startYear: 2026, startMonth: 1, termMonths: 12, role: 'sub' },
+  ];
+  const held4 = four.reduce((s, a) => s + calc.weightedProfit(a, shares), 0);
+  assert.equal(held4, 2000000); // → 150万超〜200万帯（200万ちょうど）
+
+  const tiers = [2, 3, 4, 5, 6, 7, 8];
+  const payout = calc.rpoIncentiveForPayout(four, 2026, 7, tiers, shares);
+  // 各月: 保有200万 → 5% → 200万×5% = 10万円/月 × 3ヶ月
+  assert.equal(payout.detail[0].heldAmount, 2000000);
+  assert.equal(payout.detail[0].percent, 5);
+  assert.equal(payout.total, 2000000 * 0.05 * 3);
 });
 
 test('RPO: 契約期間内の月だけ粗利が計上される', () => {
@@ -135,77 +164,82 @@ test('RPO: 契約期間内の月だけ粗利が計上される', () => {
   assert.equal(calc.dealActiveInMonth(deal, 2026, 7), false);
 });
 
-test('RPO: 支給月に対象3ヶ月分の粗利×率×担当割合が支払われる', () => {
-  const tiers = [3, 5, 7, 10];
+test('RPO: 支給月に対象3ヶ月分の保有額×率が支払われる', () => {
+  const tiers = [2, 3, 4, 5, 6, 7, 8];
   const shares = { main: 80, sub: 20 };
-  // 月80万の案件 (2026/1〜6) をメイン担当 → 4月支給は 12月(対象外)+1月+2月 = 80万×2ヶ月, 各月3%×80%
+  // 月80万の案件 (2026/1〜6) をメイン担当 → 保有額 64万 → 50万超〜100万帯 3%
+  // 4月支給は 12月(対象外)+1月+2月 = 2ヶ月分
   const assignments = [
     { clientName: 'A社', monthlyProfit: 800000, startYear: 2026, startMonth: 1, termMonths: 6, role: 'main' },
   ];
   const apr = calc.rpoIncentiveForPayout(assignments, 2026, 4, tiers, shares);
-  assert.equal(apr.total, 800000 * 0.03 * 0.8 * 2);
+  assert.equal(apr.total, 640000 * 0.03 * 2);
 
   // 7月支給は 3月+4月+5月 = 3ヶ月分
   const jul = calc.rpoIncentiveForPayout(assignments, 2026, 7, tiers, shares);
-  assert.equal(jul.total, 800000 * 0.03 * 0.8 * 3);
+  assert.equal(jul.total, 640000 * 0.03 * 3);
 
-  // サブ担当なら20%
+  // サブ担当なら保有額 16万 → 〜50万帯 2%
   const subAssignments = [
     { clientName: 'A社', monthlyProfit: 800000, startYear: 2026, startMonth: 1, termMonths: 6, role: 'sub' },
   ];
   const julSub = calc.rpoIncentiveForPayout(subAssignments, 2026, 7, tiers, shares);
-  assert.equal(julSub.total, 800000 * 0.03 * 0.2 * 3);
-
-  // 担当案件が2つで月合計120万なら、帯の判定は粗利全額で行われ5%帯になる
-  const assignments2 = [
-    { clientName: 'A社', monthlyProfit: 800000, startYear: 2026, startMonth: 1, termMonths: 12, role: 'main' },
-    { clientName: 'B社', monthlyProfit: 400000, startYear: 2026, startMonth: 1, termMonths: 12, role: 'sub' },
-  ];
-  const jul2 = calc.rpoIncentiveForPayout(assignments2, 2026, 7, tiers, shares);
-  // A社: 80万×5%×80%, B社: 40万×5%×20%, ×3ヶ月
-  assert.equal(jul2.total, (800000 * 0.05 * 0.8 + 400000 * 0.05 * 0.2) * 3);
-  // 内訳にも案件別の行が入る
-  assert.equal(jul2.detail[0].deals.length, 2);
-  assert.equal(jul2.detail[0].percent, 5);
+  assert.equal(julSub.total, 160000 * 0.02 * 3);
 });
 
-test('RPO: 同じ担当に複数人がつく場合は粗利を人数で等分してから計算する', () => {
-  const tiers = [3, 5, 7, 10];
+test('RPO: 同じ担当に複数人がつく場合は粗利を人数で等分してから換算する', () => {
+  const tiers = [2, 3, 4, 5, 6, 7, 8];
   const shares = { main: 80, sub: 20 };
-  // 要件の例: 粗利80万円の案件をメイン2人で分担 → 各40万円として計算
+  // 粗利80万円の案件をメイン2人で分担 → 各40万円 → ×80% = 保有額32万 → 〜50万帯 2%
   const assignments = [
     { clientName: 'A社', monthlyProfit: 800000, startYear: 2026, startMonth: 3, termMonths: 6, role: 'main', roleMemberCount: 2 },
   ];
   const jul = calc.rpoIncentiveForPayout(assignments, 2026, 7, tiers, shares);
-  // 按分後40万 → 〜100万帯 3% × メイン80% × 3ヶ月
-  assert.equal(jul.total, 400000 * 0.03 * 0.8 * 3);
+  assert.equal(jul.total, 320000 * 0.02 * 3);
   assert.equal(jul.detail[0].deals[0].sharedProfit, 400000);
+  assert.equal(jul.detail[0].deals[0].weightedProfit, 320000);
   assert.equal(jul.detail[0].deals[0].members, 2);
-
-  // サブ3人なら各 1/3
-  const subs = [
-    { clientName: 'B社', monthlyProfit: 900000, startYear: 2026, startMonth: 3, termMonths: 6, role: 'sub', roleMemberCount: 3 },
-  ];
-  const julSub = calc.rpoIncentiveForPayout(subs, 2026, 7, tiers, shares);
-  assert.equal(julSub.total, Math.round(300000 * 0.03 * 0.2) * 3);
-
-  // 保有額帯の判定も按分後の合計で行われる（120万を2人で分担 → 60万 → 3%帯）
-  const shared = [
-    { clientName: 'C社', monthlyProfit: 1200000, startYear: 2026, startMonth: 3, termMonths: 6, role: 'main', roleMemberCount: 2 },
-  ];
-  const julShared = calc.rpoIncentiveForPayout(shared, 2026, 7, tiers, shares);
-  assert.equal(julShared.detail[0].percent, 3);
-  assert.equal(julShared.total, 600000 * 0.03 * 0.8 * 3);
 });
 
 test('RPO: 担当割合はオーナー設定値が反映される (例: 70/30)', () => {
-  const tiers = [3, 5, 7, 10];
+  const tiers = [2, 3, 4, 5, 6, 7, 8];
   const shares = { main: 70, sub: 30 };
   const assignments = [
     { clientName: 'A社', monthlyProfit: 1000000, startYear: 2026, startMonth: 3, termMonths: 6, role: 'main' },
   ];
+  // 保有額 70万 → 50万超〜100万帯 3%
   const jul = calc.rpoIncentiveForPayout(assignments, 2026, 7, tiers, shares);
-  assert.equal(jul.total, 1000000 * 0.03 * 0.7 * 3);
+  assert.equal(jul.total, 700000 * 0.03 * 3);
+});
+
+// ---------------- 粗利の可視化（損益） ----------------
+
+test('profitSeriesForYear: RPO保有額 + イベント受注金額50% で月次粗利と損益を判定する', () => {
+  const input = {
+    assignments: [
+      // メイン 月100万 (2026/1〜12) → 保有額 80万/月
+      { clientName: 'A社', monthlyProfit: 1000000, startYear: 2026, startMonth: 1, termMonths: 12, role: 'main' },
+    ],
+    orders: [
+      // 3月開催のイベントを80万円で受注 → 3月に40万円計上
+      { eventDate: '2026-03-15', amount: 800000, slots: 3 },
+    ],
+    baseRecords: [{ id: 1, amount: 300000, effectiveYear: 2026, effectiveMonth: 1 }],
+    roleShares: { main: 80, sub: 20 },
+    thresholdPercent: 30,
+  };
+  const series = calc.profitSeriesForYear(input, 2026);
+  assert.equal(series.length, 12);
+
+  // 1月: 粗利80万 → ×30% = 24万 < 基本給30万 → 赤字
+  assert.equal(series[0].total, 800000);
+  assert.equal(series[0].surplus, false);
+
+  // 3月: 粗利80万+40万=120万 → ×30% = 36万 >= 30万 → 黒字
+  assert.equal(series[2].rpoProfit, 800000);
+  assert.equal(series[2].eventProfit, 400000);
+  assert.equal(series[2].total, 1200000);
+  assert.equal(series[2].surplus, true);
 });
 
 // ---------------- 月次まとめ ----------------
@@ -219,7 +253,7 @@ test('salaryForMonth: 支給月以外はインセンティブ0、支給月は合
     assignments: [
       { clientName: 'A社', monthlyProfit: 500000, startYear: 2026, startMonth: 1, termMonths: 12, role: 'main' },
     ],
-    tierPercents: [3, 5, 7, 10],
+    tierPercents: [2, 3, 4, 5, 6, 7, 8],
     roleShares: { main: 80, sub: 20 },
   };
 
@@ -228,9 +262,10 @@ test('salaryForMonth: 支給月以外はインセンティブ0、支給月は合
   assert.equal(feb.total, 300000);
   assert.equal(feb.isQuarterMonth, false);
 
-  // 4月: 基本給30万 + イベント(1月開催3枠×2万=6万) + RPO(1月+2月の粗利50万×3%×80%×2)
+  // 4月: 基本給30万 + イベント(1月開催3枠×2万=6万)
+  //     + RPO(1月+2月: 保有額 50万×80%=40万 → 〜50万帯2% → 8000円×2ヶ月)
   const apr = calc.salaryForMonth(input, 2026, 4);
   assert.equal(apr.eventIncentive.total, 60000);
-  assert.equal(apr.rpoIncentive.total, 500000 * 0.03 * 0.8 * 2);
-  assert.equal(apr.total, 300000 + 60000 + 24000);
+  assert.equal(apr.rpoIncentive.total, 400000 * 0.02 * 2);
+  assert.equal(apr.total, 300000 + 60000 + 16000);
 });
