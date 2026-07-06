@@ -35,8 +35,9 @@
 //
 // ■ 粗利の可視化（損益グラフ）
 //   各メンバーの月次粗利 = RPO保有額（メイン80%/サブ20%換算） + イベント受注金額の50%
-//   （イベント分は開催月に計上）。基本給が「粗利 × 損益ライン%（初期値30%）」以内なら
-//   黒字、超えたら赤字と判定する。
+//   イベント分は開催日や振込日ではなく「受注した月（当月）」に計上する。
+//   例: 7月に10月開催のイベントを受注 → 7月の粗利に反映。
+//   基本給が「粗利 × 損益ライン%（初期値30%）」以内なら黒字、超えたら赤字と判定する。
 // ============================================================
 
 const QUARTER_MONTHS = [1, 4, 7, 10];
@@ -254,7 +255,7 @@ function rpoIncentiveForPayout(assignments, payoutYear, payoutMonth, tierPercent
 // ---------------- 粗利の可視化（損益） ----------------
 // 1年分の月次粗利と損益判定を返す。
 //   RPO分: その月に稼働中の担当案件の保有額（按分後粗利 × 担当割合）
-//   イベント分: 開催月がその月のイベントの受注金額 × 50%
+//   イベント分: その月に「受注した」イベントの受注金額 × 50%（開催月・振込日は無関係）
 //   判定: 基本給 <= 粗利合計 × thresholdPercent% → 黒字 (surplus: true)
 function profitSeriesForYear({ assignments, orders, baseRecords, roleShares, thresholdPercent }, year) {
   const series = [];
@@ -262,9 +263,8 @@ function profitSeriesForYear({ assignments, orders, baseRecords, roleShares, thr
     const rpoProfit = assignments
       .filter((a) => dealActiveInMonth(a, year, month))
       .reduce((sum, a) => sum + weightedProfit(a, roleShares), 0);
-    const prefix = `${year}-${String(month).padStart(2, '0')}`;
     const eventProfit = orders
-      .filter((o) => o.eventDate.startsWith(prefix))
+      .filter((o) => o.orderYear === year && o.orderMonth === month)
       .reduce((sum, o) => sum + ((o.amount || 0) * EVENT_PROFIT_PERCENT) / 100, 0);
     const total = Math.round(rpoProfit + eventProfit);
     const baseSalary = baseSalaryForMonth(baseRecords, year, month);
