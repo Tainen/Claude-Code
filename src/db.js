@@ -60,7 +60,9 @@ function createDb(filePath) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    -- イベント枠の受注（社員が登録）。amount は受注金額（円）で粗利の可視化に使う。
+    -- イベント枠の受注（社員が登録）。amount は枠単価（1枠あたりの受注金額・円）。
+    -- 受注合計 = slots × amount。粗利の可視化に使う。
+    -- 同じイベントで枠ごとに金額が異なる場合は、単価ごとに複数行で登録する。
     CREATE TABLE IF NOT EXISTS event_orders (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -104,6 +106,7 @@ function createDb(filePath) {
   migrateLegacyRpoDeals(db);
   migrateAssignmentsAllowMultiRole(db);
   migrateEventOrderAmount(db);
+  migrateOrderAmountToUnitPrice(db);
   migrateRpoTierSettings(db);
 
   const insertSetting = db.prepare(
@@ -200,6 +203,16 @@ function migrateEventOrderAmount(db) {
   if (!cols.includes('amount')) {
     db.exec('ALTER TABLE event_orders ADD COLUMN amount INTEGER NOT NULL DEFAULT 0');
   }
+}
+
+// 旧仕様（amount = 受注合計額）から新仕様（amount = 枠単価）への移行。
+// 受注合計が変わらないよう、既存データは合計 ÷ 枠数 で単価に変換する。
+function migrateOrderAmountToUnitPrice(db) {
+  if (getSetting(db, 'order_amount_is_unit_price')) return;
+  db.exec(
+    'UPDATE event_orders SET amount = CAST(ROUND(amount * 1.0 / slots) AS INTEGER) WHERE slots > 1'
+  );
+  setSetting(db, 'order_amount_is_unit_price', '1');
 }
 
 // 旧設定（4段階: 〜100万/〜150万/〜200万/200万超）から

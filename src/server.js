@@ -213,7 +213,7 @@ function createApp(dbPath) {
       return res.status(400).json({ error: '枠数は1以上の整数で入力してください' });
     }
     if (!Number.isInteger(amount) || amount < 0) {
-      return res.status(400).json({ error: '受注金額は0以上の整数で入力してください' });
+      return res.status(400).json({ error: '枠単価（1枠あたりの金額）は0以上の整数で入力してください' });
     }
     if (!isValidYear(orderYear) || !isValidMonth(orderMonth)) {
       return res.status(400).json({ error: '受注年月が不正です' });
@@ -248,7 +248,7 @@ function createApp(dbPath) {
         return res.status(400).json({ error: '枠数は1以上の整数で入力してください' });
       }
       if (!Number.isInteger(amount) || amount < 0) {
-        return res.status(400).json({ error: '受注金額は0以上の整数で入力してください' });
+        return res.status(400).json({ error: '枠単価（1枠あたりの金額）は0以上の整数で入力してください' });
       }
     }
     const insert = db.prepare(
@@ -284,7 +284,7 @@ function createApp(dbPath) {
       return res.status(400).json({ error: '枠数は1以上の整数で入力してください' });
     }
     if (!Number.isInteger(amount) || amount < 0) {
-      return res.status(400).json({ error: '受注金額は0以上の整数で入力してください' });
+      return res.status(400).json({ error: '枠単価（1枠あたりの金額）は0以上の整数で入力してください' });
     }
     if (!isValidYear(orderYear) || !isValidMonth(orderMonth)) {
       return res.status(400).json({ error: '受注年月が不正です' });

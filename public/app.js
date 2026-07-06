@@ -710,10 +710,11 @@ async function renderOrdersTab(content) {
   const regCard = el('div', { class: 'card' });
   regCard.append(el('h2', {}, '採用イベントの受注登録（自分の実績）'));
   regCard.append(el('p', { class: 'note' },
-    '受注したイベントにチェックを入れ、枠数といくらで受注したか（受注金額）を入力してまとめて登録できます。' +
-    '受注金額は損益グラフの粗利計算（受注金額の50%を受注月に計上）に使われます。' +
-    'インセンティブは同じ受注月の合計枠数で単価が決まります: 1〜5枠目 2万円 / 6〜10枠目 4万円 / 11枠目以降 6万円。' +
-    '単価はイベント開催日が早い順に割り当てられ、開催月の翌月入金後、直近の支給月（1月・4月・7月・10月）に反映されます。'));
+    '受注したイベントにチェックを入れ、枠数と枠単価（1枠あたりの受注金額）を入力してまとめて登録できます。' +
+    '受注合計 = 枠数 × 枠単価（例: 2枠 × 20万円 = 40万円）。合計の50%が損益グラフの粗利として受注月に計上されます。' +
+    '同じイベントで枠ごとに金額が異なる場合は、単価ごとに分けて登録してください（同じイベントを何度でも登録できます）。' +
+    'インセンティブは同じ受注月の合計枠数で決まります: 1〜5枠目 2万円 / 6〜10枠目 4万円 / 11枠目以降 6万円' +
+    '（イベント開催日が早い順に割り当て、開催月の翌月入金後、直近の支給月に反映）。'));
 
   const yearSel = el('select');
   yearOptions(yearSel, now.getFullYear() - 2, now.getFullYear() + 2, now.getFullYear());
@@ -761,13 +762,19 @@ async function renderOrdersTab(content) {
       };
       const tbody = el('tbody');
       for (const ev of events) {
+        const subtotal = el('td', { class: 'num' }, '—');
+        const updateSubtotal = () => {
+          const total = Number(slotsInput.value || 0) * Number(amountInput.value || 0);
+          subtotal.textContent = checkbox.checked && total > 0 ? yen(total) : '—';
+        };
         const checkbox = el('input', { type: 'checkbox', onchange: () => {
           slotsInput.disabled = !checkbox.checked;
           amountInput.disabled = !checkbox.checked;
           updateRegisterBtn();
+          updateSubtotal();
         } });
-        const slotsInput = el('input', { type: 'number', min: 1, step: 1, value: 1, style: 'width:80px;' });
-        const amountInput = el('input', { type: 'number', min: 0, step: 1, placeholder: '例: 500000', style: 'width:130px;' });
+        const slotsInput = el('input', { type: 'number', min: 1, step: 1, value: 1, style: 'width:80px;', oninput: updateSubtotal });
+        const amountInput = el('input', { type: 'number', min: 0, step: 1, placeholder: '例: 200000', style: 'width:130px;', oninput: updateSubtotal });
         slotsInput.disabled = true;
         amountInput.disabled = true;
         rows.push({ checkbox, slotsInput, amountInput, event: ev });
@@ -776,13 +783,14 @@ async function renderOrdersTab(content) {
           el('td', {}, ev.eventDate),
           el('td', {}, ev.name),
           el('td', {}, slotsInput),
-          el('td', {}, amountInput)));
+          el('td', {}, amountInput),
+          subtotal));
       }
       eventArea.append(el('div', { class: 'table-scroll' },
         el('table', {},
           el('thead', {}, el('tr', {},
             el('th', {}, '選択'), el('th', {}, '開催日'), el('th', {}, 'イベント名'),
-            el('th', {}, '枠数'), el('th', {}, '受注金額（円）'))),
+            el('th', {}, '枠数'), el('th', {}, '枠単価（1枠あたり・円）'), el('th', { class: 'num' }, '受注合計'))),
           tbody)));
 
       registerBtn.addEventListener('click', async () => {
@@ -836,6 +844,7 @@ async function renderOrdersTab(content) {
           el('td', {}, ym(o.orderYear, o.orderMonth)),
           el('td', { class: 'num' }, `${o.slots}枠`),
           el('td', { class: 'num' }, yen(o.amount)),
+          el('td', { class: 'num' }, yen(o.slots * o.amount)),
           el('td', {},
             el('button', {
               onclick: () => {
@@ -846,6 +855,12 @@ async function renderOrdersTab(content) {
                 monthOptions(mSel, o.orderMonth);
                 const slotsInput = el('input', { type: 'number', min: 1, step: 1, value: o.slots, style: 'width:70px;' });
                 const amountInput = el('input', { type: 'number', min: 0, step: 1, value: o.amount, style: 'width:120px;' });
+                const totalCell = el('td', { class: 'num' }, yen(o.slots * o.amount));
+                const updateTotal = () => {
+                  totalCell.textContent = yen(Number(slotsInput.value || 0) * Number(amountInput.value || 0));
+                };
+                slotsInput.addEventListener('input', updateTotal);
+                amountInput.addEventListener('input', updateTotal);
                 tr.replaceChildren(
                   el('td', {}),
                   el('td', {}, o.eventName),
@@ -853,6 +868,7 @@ async function renderOrdersTab(content) {
                   el('td', {}, ySel, ' ', mSel),
                   el('td', {}, slotsInput),
                   el('td', {}, amountInput),
+                  totalCell,
                   el('td', {},
                     el('button', {
                       onclick: async () => {
@@ -884,7 +900,8 @@ async function renderOrdersTab(content) {
             el('thead', {}, el('tr', {},
               el('th', {}, selectAll), el('th', {}, 'イベント'), el('th', {}, '開催日'),
               el('th', {}, '受注月'), el('th', { class: 'num' }, '枠数'),
-              el('th', { class: 'num' }, '受注金額'), el('th', {}, ''))),
+              el('th', { class: 'num' }, '枠単価'), el('th', { class: 'num' }, '受注合計'),
+              el('th', {}, ''))),
             tbody)),
         el('div', { style: 'margin-top:12px;' }, deleteBtn));
 
@@ -1006,7 +1023,7 @@ async function renderProfitTab(content) {
   const card = el('div', { class: 'card' });
   card.append(el('h2', {}, '損益グラフ（自分）'));
   card.append(el('p', { class: 'note' },
-    '月次粗利 = RPO保有額（按分後粗利 × メイン/サブ割合） + イベント受注金額の50%（受注した月に計上。開催日や振込日は関係ありません）。' +
+    '月次粗利 = RPO保有額（按分後粗利 × メイン/サブ割合） + イベント受注合計（枠数 × 枠単価）の50%（受注した月に計上。開催日や振込日は関係ありません）。' +
     '基本給が「粗利 × 損益ライン%」以内なら黒字（青）、超えると赤字（赤）で表示します。' +
     '棒にカーソルを合わせると内訳が見られます。'));
 

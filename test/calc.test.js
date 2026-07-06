@@ -214,15 +214,16 @@ test('RPO: 担当割合はオーナー設定値が反映される (例: 70/30)',
 
 // ---------------- 粗利の可視化（損益） ----------------
 
-test('profitSeriesForYear: RPO保有額 + イベント受注金額50%（受注月に計上）で月次粗利と損益を判定する', () => {
+test('profitSeriesForYear: RPO保有額 + イベント受注合計（枠数×枠単価）の50%（受注月に計上）で月次粗利と損益を判定する', () => {
   const input = {
     assignments: [
       // メイン 月100万 (2026/1〜12) → 保有額 80万/月
       { clientName: 'A社', monthlyProfit: 1000000, startYear: 2026, startMonth: 1, termMonths: 12, role: 'main' },
     ],
     orders: [
-      // 3月に受注したイベント（開催は10月）80万円 → 開催月ではなく受注月の3月に40万円計上
-      { eventDate: '2026-10-15', orderYear: 2026, orderMonth: 3, amount: 800000, slots: 3 },
+      // 3月に受注したイベント（開催は10月）: 2枠 × 枠単価40万 = 受注合計80万
+      // → 開催月ではなく受注月の3月に 80万×50% = 40万円計上
+      { eventDate: '2026-10-15', orderYear: 2026, orderMonth: 3, amount: 400000, slots: 2 },
     ],
     baseRecords: [{ id: 1, amount: 300000, effectiveYear: 2026, effectiveMonth: 1 }],
     roleShares: { main: 80, sub: 20 },
