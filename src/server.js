@@ -187,7 +187,7 @@ function createApp(dbPath) {
   function listOrders(userId) {
     return db
       .prepare(
-        `SELECT o.id, o.event_id AS eventId, o.slots,
+        `SELECT o.id, o.event_id AS eventId, o.slots, o.amount,
                 o.order_year AS orderYear, o.order_month AS orderMonth,
                 e.name AS eventName, e.event_date AS eventDate
          FROM event_orders o JOIN events e ON e.id = o.event_id
@@ -204,6 +204,7 @@ function createApp(dbPath) {
   app.post('/api/orders', auth.requireAuth, (req, res) => {
     const eventId = Number(req.body?.eventId);
     const slots = Number(req.body?.slots);
+    const amount = Number(req.body?.amount ?? 0);
     const orderYear = Number(req.body?.orderYear);
     const orderMonth = Number(req.body?.orderMonth);
     const event = db.prepare('SELECT id FROM events WHERE id = ?').get(eventId);
@@ -211,14 +212,17 @@ function createApp(dbPath) {
     if (!Number.isInteger(slots) || slots < 1) {
       return res.status(400).json({ error: '枠数は1以上の整数で入力してください' });
     }
+    if (!Number.isInteger(amount) || amount < 0) {
+      return res.status(400).json({ error: '受注金額は0以上の整数で入力してください' });
+    }
     if (!isValidYear(orderYear) || !isValidMonth(orderMonth)) {
       return res.status(400).json({ error: '受注年月が不正です' });
     }
     const result = db
       .prepare(
-        'INSERT INTO event_orders (user_id, event_id, slots, order_year, order_month) VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO event_orders (user_id, event_id, slots, amount, order_year, order_month) VALUES (?, ?, ?, ?, ?, ?)'
       )
-      .run(req.user.id, eventId, slots, orderYear, orderMonth);
+      .run(req.user.id, eventId, slots, amount, orderYear, orderMonth);
     res.json({ id: Number(result.lastInsertRowid) });
   });
 
@@ -236,20 +240,31 @@ function createApp(dbPath) {
     const findEvent = db.prepare('SELECT id FROM events WHERE id = ?');
     for (const item of items) {
       const slots = Number(item?.slots);
+      const amount = Number(item?.amount ?? 0);
       if (!findEvent.get(Number(item?.eventId))) {
         return res.status(400).json({ error: '指定されたイベントが存在しません' });
       }
       if (!Number.isInteger(slots) || slots < 1) {
         return res.status(400).json({ error: '枠数は1以上の整数で入力してください' });
       }
+      if (!Number.isInteger(amount) || amount < 0) {
+        return res.status(400).json({ error: '受注金額は0以上の整数で入力してください' });
+      }
     }
     const insert = db.prepare(
-      'INSERT INTO event_orders (user_id, event_id, slots, order_year, order_month) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO event_orders (user_id, event_id, slots, amount, order_year, order_month) VALUES (?, ?, ?, ?, ?, ?)'
     );
     db.exec('BEGIN');
     try {
       for (const item of items) {
-        insert.run(req.user.id, Number(item.eventId), Number(item.slots), orderYear, orderMonth);
+        insert.run(
+          req.user.id,
+          Number(item.eventId),
+          Number(item.slots),
+          Number(item.amount ?? 0),
+          orderYear,
+          orderMonth
+        );
       }
       db.exec('COMMIT');
     } catch (err) {
@@ -485,16 +500,17 @@ function createApp(dbPath) {
   // ---------------- 設定（RPO 率。閲覧は全員、変更はオーナー） ----------------
 
   function settingsPayload() {
-    const [tier1, tier2, tier3, tier4] = getRpoTierPercents(db);
+    const tiers = getRpoTierPercents(db);
     const shares = getRpoRoleShares(db);
-    return {
-      rpoTier1Percent: tier1,
-      rpoTier2Percent: tier2,
-      rpoTier3Percent: tier3,
-      rpoTier4Percent: tier4,
+    const payload = {
       rpoMainPercent: shares.main,
       rpoSubPercent: shares.sub,
+      profitThresholdPercent: Number(getSetting(db, 'profit_threshold_percent') ?? 30),
     };
+    tiers.forEach((value, i) => {
+      payload[`rpoTier${i + 1}Percent`] = value;
+    });
+    return payload;
   }
 
   app.get('/api/settings', auth.requireAuth, (req, res) => {
@@ -512,8 +528,12 @@ function createApp(dbPath) {
       ['rpoTier2Percent', 'rpo_tier2_percent'],
       ['rpoTier3Percent', 'rpo_tier3_percent'],
       ['rpoTier4Percent', 'rpo_tier4_percent'],
+      ['rpoTier5Percent', 'rpo_tier5_percent'],
+      ['rpoTier6Percent', 'rpo_tier6_percent'],
+      ['rpoTier7Percent', 'rpo_tier7_percent'],
       ['rpoMainPercent', 'rpo_main_percent'],
       ['rpoSubPercent', 'rpo_sub_percent'],
+      ['profitThresholdPercent', 'profit_threshold_percent'],
     ];
     for (const [bodyKey] of keys) {
       const v = Number(req.body?.[bodyKey]);
@@ -530,6 +550,54 @@ function createApp(dbPath) {
     }
     setSetting(db, 'signup_code', signupCode);
     res.json({ ...settingsPayload(), signupCode });
+  });
+
+  // ---------------- 粗利の可視化（損益グラフ） ----------------
+
+  function profitSeries(userId, year) {
+    const baseRecords = db
+      .prepare(
+        `SELECT id, amount, effective_year AS effectiveYear, effective_month AS effectiveMonth
+         FROM base_salaries WHERE user_id = ?`
+      )
+      .all(userId);
+    return calc.profitSeriesForYear(
+      {
+        assignments: listUserAssignments(userId),
+        orders: listOrders(userId),
+        baseRecords,
+        roleShares: getRpoRoleShares(db),
+        thresholdPercent: Number(getSetting(db, 'profit_threshold_percent') ?? 30),
+      },
+      year
+    );
+  }
+
+  // 自分の月次粗利と損益判定（1年分）
+  app.get('/api/profit', auth.requireAuth, (req, res) => {
+    const year = Number(req.query.year);
+    if (!isValidYear(year)) return res.status(400).json({ error: '年が不正です' });
+    res.json({
+      year,
+      thresholdPercent: Number(getSetting(db, 'profit_threshold_percent') ?? 30),
+      months: profitSeries(req.user.id, year),
+    });
+  });
+
+  // 全メンバーの月次粗利と損益判定（オーナーのみ）
+  app.get('/api/admin/profit', auth.requireOwner, (req, res) => {
+    const year = Number(req.query.year);
+    if (!isValidYear(year)) return res.status(400).json({ error: '年が不正です' });
+    const users = db.prepare('SELECT id, name FROM users ORDER BY id').all();
+    res.json({
+      year,
+      thresholdPercent: Number(getSetting(db, 'profit_threshold_percent') ?? 30),
+      users: users.map((u) => ({
+        userId: u.id,
+        userName: u.name,
+        months: profitSeries(u.id, year),
+      })),
+    });
   });
 
   // ---------------- オーナー用（メンバー一覧・メンバー給与） ----------------

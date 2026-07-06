@@ -25,10 +25,18 @@
 //   同じ担当（メイン/サブ）に複数人がつく案件もあり、その場合は
 //   案件の月間粗利を人数で等分した額（例: 粗利80万でメイン2人 → 各40万）を
 //   その人の担当分として扱う。
-//   対象 3ヶ月それぞれについて、その月に稼働中の担当案件の按分後粗利の合計を求め、
-//   保有粗利帯（〜100万 / 〜150万 / 〜200万 / 201万〜）ごとにオーナーが設定した
-//   パーセンテージを掛け、さらに担当割合（初期値: メイン80% / サブ20%、
-//   オーナーが変更可能）を掛けた金額を合算する。
+//   「いくら分の案件を持っているか（保有額）」は、按分後粗利に担当割合
+//   （初期値: メイン80% / サブ20%、オーナーが変更可能）を掛けて換算する。
+//     例: メインで100万の案件を2つ → 100万×80%×2 = 160万 → 150万超〜200万帯
+//         メイン100万×2 + サブ100万×2 → 80+80+20+20 = 200万 → 150万超〜200万帯
+//   対象 3ヶ月それぞれについて、その月の保有額合計に対して
+//   50万円刻みの保有額帯（〜50万/〜100万/〜150万/〜200万/〜250万/〜300万/300万超）
+//   ごとにオーナーが設定したパーセンテージを掛けた金額を支給する。
+//
+// ■ 粗利の可視化（損益グラフ）
+//   各メンバーの月次粗利 = RPO保有額（メイン80%/サブ20%換算） + イベント受注金額の50%
+//   （イベント分は開催月に計上）。基本給が「粗利 × 損益ライン%（初期値30%）」以内なら
+//   黒字、超えたら赤字と判定する。
 // ============================================================
 
 const QUARTER_MONTHS = [1, 4, 7, 10];
@@ -40,8 +48,11 @@ const EVENT_SLOT_TIERS = [
   { upTo: Infinity, rate: 60000 },
 ];
 
-// RPO 保有粗利帯の上限額（この額「以下」で判定、最後の帯は上限なし）
-const RPO_TIER_BOUNDS = [1000000, 1500000, 2000000, Infinity];
+// RPO 保有粗利帯の上限額（この額「以下」で判定、最後の帯は上限なし）: 50万円刻み7段階
+const RPO_TIER_BOUNDS = [500000, 1000000, 1500000, 2000000, 2500000, 3000000, Infinity];
+
+// イベント受注金額のうち粗利として計上する割合 (%)
+const EVENT_PROFIT_PERCENT = 50;
 
 function isQuarterMonth(month) {
   return QUARTER_MONTHS.includes(month);
@@ -181,13 +192,20 @@ function dealActiveInMonth(deal, year, month) {
   return idx >= start && idx < start + deal.termMonths;
 }
 
-// 月間粗利合計 → 適用パーセンテージ
-// tierPercents: [tier1, tier2, tier3, tier4] （〜100万 / 〜150万 / 〜200万 / 201万〜）
+// 保有額合計 → 適用パーセンテージ
+// tierPercents: [tier1..tier7] （〜50万/〜100万/〜150万/〜200万/〜250万/〜300万/300万超）
 function rpoTierPercent(monthlyTotal, tierPercents) {
   for (let i = 0; i < RPO_TIER_BOUNDS.length; i++) {
     if (monthlyTotal <= RPO_TIER_BOUNDS[i]) return tierPercents[i];
   }
   return tierPercents[tierPercents.length - 1];
+}
+
+// 担当1件分の保有額換算: 按分後粗利 × 担当割合（メイン80% / サブ20%）
+function weightedProfit(assignment, roleShares) {
+  const members = assignment.roleMemberCount || 1;
+  const share = roleShares[assignment.role] ?? 0;
+  return ((assignment.monthlyProfit / members) * share) / 100;
 }
 
 // 指定支給月に支払われる RPO インセンティブ（対象3ヶ月の月別・案件別内訳つき）
@@ -207,31 +225,60 @@ function rpoIncentiveForPayout(assignments, payoutYear, payoutMonth, tierPercent
         ...a,
         members: a.roleMemberCount || 1,
         sharedProfit: a.monthlyProfit / (a.roleMemberCount || 1),
+        weighted: weightedProfit(a, roleShares),
       }));
-    // 保有粗利帯の判定は按分後の粗利合計で行う
-    const monthlyProfit = active.reduce((sum, a) => sum + a.sharedProfit, 0);
-    if (monthlyProfit <= 0) {
-      detail.push({ year, month, monthlyProfit: 0, percent: 0, amount: 0, deals: [] });
+    // 保有額帯の判定は「按分後粗利 × 担当割合」で換算した保有額の合計で行う
+    const heldAmount = active.reduce((sum, a) => sum + a.weighted, 0);
+    if (heldAmount <= 0) {
+      detail.push({ year, month, heldAmount: 0, percent: 0, amount: 0, deals: [] });
       continue;
     }
-    const percent = rpoTierPercent(monthlyProfit, tierPercents);
-    const deals = active.map((a) => {
-      const share = roleShares[a.role] ?? 0;
-      return {
-        clientName: a.clientName,
-        role: a.role,
-        monthlyProfit: a.monthlyProfit,
-        members: a.members,
-        sharedProfit: Math.round(a.sharedProfit),
-        share,
-        amount: Math.round((a.sharedProfit * percent * share) / 10000),
-      };
-    });
+    const percent = rpoTierPercent(heldAmount, tierPercents);
+    const deals = active.map((a) => ({
+      clientName: a.clientName,
+      role: a.role,
+      monthlyProfit: a.monthlyProfit,
+      members: a.members,
+      sharedProfit: Math.round(a.sharedProfit),
+      share: roleShares[a.role] ?? 0,
+      weightedProfit: Math.round(a.weighted),
+      amount: Math.round((a.weighted * percent) / 100),
+    }));
     const amount = deals.reduce((sum, d) => sum + d.amount, 0);
     total += amount;
-    detail.push({ year, month, monthlyProfit: Math.round(monthlyProfit), percent, amount, deals });
+    detail.push({ year, month, heldAmount: Math.round(heldAmount), percent, amount, deals });
   }
   return { total, detail };
+}
+
+// ---------------- 粗利の可視化（損益） ----------------
+// 1年分の月次粗利と損益判定を返す。
+//   RPO分: その月に稼働中の担当案件の保有額（按分後粗利 × 担当割合）
+//   イベント分: 開催月がその月のイベントの受注金額 × 50%
+//   判定: 基本給 <= 粗利合計 × thresholdPercent% → 黒字 (surplus: true)
+function profitSeriesForYear({ assignments, orders, baseRecords, roleShares, thresholdPercent }, year) {
+  const series = [];
+  for (let month = 1; month <= 12; month++) {
+    const rpoProfit = assignments
+      .filter((a) => dealActiveInMonth(a, year, month))
+      .reduce((sum, a) => sum + weightedProfit(a, roleShares), 0);
+    const prefix = `${year}-${String(month).padStart(2, '0')}`;
+    const eventProfit = orders
+      .filter((o) => o.eventDate.startsWith(prefix))
+      .reduce((sum, o) => sum + ((o.amount || 0) * EVENT_PROFIT_PERCENT) / 100, 0);
+    const total = Math.round(rpoProfit + eventProfit);
+    const baseSalary = baseSalaryForMonth(baseRecords, year, month);
+    const surplus = baseSalary <= (total * thresholdPercent) / 100;
+    series.push({
+      month,
+      rpoProfit: Math.round(rpoProfit),
+      eventProfit: Math.round(eventProfit),
+      total,
+      baseSalary,
+      surplus,
+    });
+  }
+  return series;
 }
 
 // ---------------- 月次給与まとめ ----------------
@@ -259,6 +306,7 @@ module.exports = {
   QUARTER_MONTHS,
   EVENT_SLOT_TIERS,
   RPO_TIER_BOUNDS,
+  EVENT_PROFIT_PERCENT,
   isQuarterMonth,
   slotRate,
   payoutMonthFor,
@@ -268,6 +316,8 @@ module.exports = {
   eventIncentiveForPayout,
   dealActiveInMonth,
   rpoTierPercent,
+  weightedProfit,
   rpoIncentiveForPayout,
+  profitSeriesForYear,
   salaryForMonth,
 };
