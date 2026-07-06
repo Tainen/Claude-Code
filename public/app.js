@@ -1038,8 +1038,10 @@ async function renderProfitTab(content) {
   const ownerCard = me.role === 'owner' ? el('div', { class: 'card' }) : null;
   if (ownerCard) {
     ownerCard.append(
-      el('h2', {}, '全メンバーの損益（オーナー）'),
-      el('p', { class: 'note' }, '選択中の年について、メンバー全員の月次粗利と黒字/赤字を表示します。'));
+      el('h2', {}, '全社合計・全メンバーの損益（オーナー）'),
+      el('p', { class: 'note' },
+        '選択中の年について、全員分を合算した全社合計と、メンバーごとの月次粗利・黒字/赤字を表示します。' +
+        '全社合計は「全員の粗利合計 × 損益ライン% ≧ 全員の基本給合計」で黒字判定します。'));
     content.append(ownerCard);
   }
   const ownerArea = ownerCard ? el('div') : null;
@@ -1053,6 +1055,11 @@ async function renderProfitTab(content) {
       if (ownerArea) {
         const all = await api(`/api/admin/profit?year=${year}`);
         ownerArea.replaceChildren();
+        // 全社合計を先頭に表示
+        ownerArea.append(
+          el('h3', {}, '🏢 全社合計'),
+          profitLegend(all.company),
+          el('div', { class: 'chart-box' }, profitChart(all.company, year)));
         for (const u of all.users) {
           ownerArea.append(
             el('h3', {}, `${u.userName} さん`),

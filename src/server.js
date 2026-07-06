@@ -608,20 +608,35 @@ function createApp(dbPath) {
     });
   });
 
-  // 全メンバーの月次粗利と損益判定（オーナーのみ）
+  // 全メンバーの月次粗利と損益判定（オーナーのみ）。
+  // company には全員分を合算した全社合計（粗利・基本給とも合計で損益判定）を含む。
   app.get('/api/admin/profit', auth.requireOwner, (req, res) => {
     const year = Number(req.query.year);
     if (!isValidYear(year)) return res.status(400).json({ error: '年が不正です' });
-    const users = db.prepare('SELECT id, name FROM users ORDER BY id').all();
-    res.json({
-      year,
-      thresholdPercent: Number(getSetting(db, 'profit_threshold_percent') ?? 30),
-      users: users.map((u) => ({
+    const thresholdPercent = Number(getSetting(db, 'profit_threshold_percent') ?? 30);
+    const users = db
+      .prepare('SELECT id, name FROM users ORDER BY id')
+      .all()
+      .map((u) => ({
         userId: u.id,
         userName: u.name,
         months: profitSeries(u.id, year),
-      })),
+      }));
+    const company = Array.from({ length: 12 }, (_, i) => {
+      const rpoProfit = users.reduce((s, u) => s + u.months[i].rpoProfit, 0);
+      const eventProfit = users.reduce((s, u) => s + u.months[i].eventProfit, 0);
+      const total = users.reduce((s, u) => s + u.months[i].total, 0);
+      const baseSalary = users.reduce((s, u) => s + u.months[i].baseSalary, 0);
+      return {
+        month: i + 1,
+        rpoProfit,
+        eventProfit,
+        total,
+        baseSalary,
+        surplus: baseSalary <= (total * thresholdPercent) / 100,
+      };
     });
+    res.json({ year, thresholdPercent, company, users });
   });
 
   // ---------------- オーナー用（メンバー一覧・メンバー給与） ----------------
