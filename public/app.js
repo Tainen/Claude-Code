@@ -829,13 +829,54 @@ async function renderOrdersTab(content) {
       for (const o of orders) {
         const checkbox = el('input', { type: 'checkbox', onchange: updateDeleteBtn });
         checks.push({ checkbox, order: o });
-        tbody.append(el('tr', {},
+        const tr = el('tr', {},
           el('td', {}, checkbox),
           el('td', {}, o.eventName),
           el('td', {}, o.eventDate),
           el('td', {}, ym(o.orderYear, o.orderMonth)),
           el('td', { class: 'num' }, `${o.slots}枠`),
-          el('td', { class: 'num' }, yen(o.amount))));
+          el('td', { class: 'num' }, yen(o.amount)),
+          el('td', {},
+            el('button', {
+              onclick: () => {
+                // 行を編集フォームに切り替える（過去月の受注も金額などを後から更新できる）
+                const ySel = el('select');
+                yearOptions(ySel, o.orderYear - 3, o.orderYear + 3, o.orderYear);
+                const mSel = el('select');
+                monthOptions(mSel, o.orderMonth);
+                const slotsInput = el('input', { type: 'number', min: 1, step: 1, value: o.slots, style: 'width:70px;' });
+                const amountInput = el('input', { type: 'number', min: 0, step: 1, value: o.amount, style: 'width:120px;' });
+                tr.replaceChildren(
+                  el('td', {}),
+                  el('td', {}, o.eventName),
+                  el('td', {}, o.eventDate),
+                  el('td', {}, ySel, ' ', mSel),
+                  el('td', {}, slotsInput),
+                  el('td', {}, amountInput),
+                  el('td', {},
+                    el('button', {
+                      onclick: async () => {
+                        try {
+                          await api(`/api/orders/${o.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                              slots: Number(slotsInput.value),
+                              amount: Number(amountInput.value || 0),
+                              orderYear: Number(ySel.value),
+                              orderMonth: Number(mSel.value),
+                            }),
+                          });
+                          renderApp();
+                        } catch (err) {
+                          showMessage(listCard, err.message, 'error');
+                        }
+                      },
+                    }, '保存'),
+                    ' ',
+                    el('button', { class: 'danger', onclick: () => renderApp() }, 'キャンセル')));
+              },
+            }, '編集')));
+        tbody.append(tr);
       }
       listArea.append(
         el('div', { class: 'table-wrap' },
@@ -843,7 +884,7 @@ async function renderOrdersTab(content) {
             el('thead', {}, el('tr', {},
               el('th', {}, selectAll), el('th', {}, 'イベント'), el('th', {}, '開催日'),
               el('th', {}, '受注月'), el('th', { class: 'num' }, '枠数'),
-              el('th', { class: 'num' }, '受注金額'))),
+              el('th', { class: 'num' }, '受注金額'), el('th', {}, ''))),
             tbody)),
         el('div', { style: 'margin-top:12px;' }, deleteBtn));
 
@@ -878,7 +919,12 @@ async function renderOrdersTab(content) {
 
 // ---------- 損益グラフ ----------
 
-// 月次粗利の棒グラフ。黒字の月は黒、赤字の月は赤で表示する。
+// 金額を万円表示にする（1000円単位まで、小数点1桁。例: 1,535,000 → 153.5万 / 1,530,000 → 153万）
+function manLabel(amount) {
+  return `${Math.round(amount / 1000) / 10}万`;
+}
+
+// 月次粗利の棒グラフ。黒字の月は青、赤字の月は赤で表示する。
 function profitChart(months, year) {
   const W = 720, H = 260;
   const m = { top: 24, right: 8, bottom: 28, left: 64 };
@@ -904,7 +950,7 @@ function profitChart(months, year) {
     svg.append(svgEl('text', {
       x: m.left - 6, y: y + 4, 'text-anchor': 'end',
       'font-size': 11, fill: '#6b7280',
-    }, value >= 10000 ? `${value / 10000}万` : String(value)));
+    }, value >= 10000 ? manLabel(value) : String(value)));
   }
 
   const slotW = plotW / 12;
@@ -934,7 +980,7 @@ function profitChart(months, year) {
         svg.append(svgEl('text', {
           x: cx, y: topY - 6, 'text-anchor': 'middle',
           'font-size': 11, fill: '#6b7280',
-        }, `${Math.round(d.total / 10000)}万`));
+        }, manLabel(d.total)));
       }
     }
     svg.append(svgEl('text', {
