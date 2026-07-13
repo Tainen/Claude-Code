@@ -201,6 +201,23 @@ test('RPO: 同じ担当に複数人がつく場合は粗利を人数で等分し
   assert.equal(jul.detail[0].deals[0].members, 2);
 });
 
+test('RPO: 案件別のメイン/サブ割合が設定されている場合はそちらを優先する', () => {
+  const shares = { main: 80, sub: 20 };
+  // 案件別に メイン60% が設定されている → 全体設定80%ではなく60%で換算
+  const a = { clientName: 'A社', monthlyProfit: 1000000, startYear: 2026, startMonth: 3, termMonths: 6, role: 'main', mainPercent: 60 };
+  assert.equal(calc.weightedProfit(a, shares), 600000);
+  // サブ40%の個別設定
+  const b = { ...a, role: 'sub', mainPercent: 60, subPercent: 40 };
+  assert.equal(calc.weightedProfit(b, shares), 400000);
+  // 未設定 (null) の案件は全体設定を使う
+  const c = { clientName: 'C社', monthlyProfit: 1000000, startYear: 2026, startMonth: 3, termMonths: 6, role: 'main', mainPercent: null };
+  assert.equal(calc.weightedProfit(c, shares), 800000);
+  // 内訳の share にも個別設定が反映される
+  const tiers = [2, 3, 4, 5, 6, 7, 8];
+  const jul = calc.rpoIncentiveForPayout([a], 2026, 7, tiers, shares);
+  assert.equal(jul.detail[0].deals[0].share, 60);
+});
+
 test('RPO: 担当割合はオーナー設定値が反映される (例: 70/30)', () => {
   const tiers = [2, 3, 4, 5, 6, 7, 8];
   const shares = { main: 70, sub: 30 };
