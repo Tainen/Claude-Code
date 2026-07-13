@@ -333,13 +333,61 @@ async function renderBaseTab(content) {
     } else {
       const tbody = el('tbody');
       for (const r of rows) {
-        tbody.append(el('tr', {},
+        const tr = el('tr', {},
           el('td', {}, ym(r.effectiveYear, r.effectiveMonth) + ' から'),
-          el('td', { class: 'num' }, yen(r.amount))));
+          el('td', { class: 'num' }, yen(r.amount)),
+          el('td', {},
+            el('button', {
+              onclick: () => {
+                // 行を編集フォームに切り替える
+                const ySel = el('select');
+                yearOptions(ySel, r.effectiveYear - 3, r.effectiveYear + 3, r.effectiveYear);
+                const mSel = el('select');
+                monthOptions(mSel, r.effectiveMonth);
+                const amountInput = el('input', { type: 'number', min: 0, step: 1, value: r.amount, style: 'width:130px;' });
+                tr.replaceChildren(
+                  el('td', {}, ySel, ' ', mSel, ' から'),
+                  el('td', { class: 'num' }, amountInput),
+                  el('td', {},
+                    el('button', {
+                      onclick: async () => {
+                        try {
+                          await api(`/api/base-salary/${r.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                              amount: Number(amountInput.value),
+                              effectiveYear: Number(ySel.value),
+                              effectiveMonth: Number(mSel.value),
+                            }),
+                          });
+                          renderApp();
+                        } catch (err) {
+                          showMessage(card, err.message, 'error');
+                        }
+                      },
+                    }, '保存'),
+                    ' ',
+                    el('button', { class: 'danger', onclick: () => renderApp() }, 'キャンセル')));
+              },
+            }, '編集'),
+            ' ',
+            el('button', {
+              class: 'danger',
+              onclick: async () => {
+                if (!confirm(`${ym(r.effectiveYear, r.effectiveMonth)}からの基本給（${yen(r.amount)}）を削除しますか？`)) return;
+                try {
+                  await api(`/api/base-salary/${r.id}`, { method: 'DELETE' });
+                  renderApp();
+                } catch (err) {
+                  showMessage(card, err.message, 'error');
+                }
+              },
+            }, '削除')));
+        tbody.append(tr);
       }
       history.append(el('div', { class: 'table-wrap' },
         el('table', {},
-          el('thead', {}, el('tr', {}, el('th', {}, '発効年月'), el('th', { class: 'num' }, '金額'))),
+          el('thead', {}, el('tr', {}, el('th', {}, '発効年月'), el('th', { class: 'num' }, '金額'), el('th', {}, ''))),
           tbody)));
     }
   } catch (err) {
@@ -495,6 +543,8 @@ async function renderRpoTab(content) {
     monthOptions(monthSel, now.getMonth() + 1);
     const termSel = el('select');
     termSel.append(el('option', { value: 6 }, '半年（6ヶ月）'), el('option', { value: 12 }, '1年（12ヶ月）'));
+    const mainPct = el('input', { type: 'number', min: 0, max: 100, step: 0.1, placeholder: '既定', style: 'width:80px;' });
+    const subPct = el('input', { type: 'number', min: 0, max: 100, step: 0.1, placeholder: '既定', style: 'width:80px;' });
 
     card.append(
       el('form', {
@@ -510,6 +560,8 @@ async function renderRpoTab(content) {
                 startYear: Number(yearSel.value),
                 startMonth: Number(monthSel.value),
                 termMonths: Number(termSel.value),
+                mainPercent: mainPct.value,
+                subPercent: subPct.value,
               }),
             });
             renderApp();
@@ -523,6 +575,8 @@ async function renderRpoTab(content) {
         el('div', { class: 'field' }, el('label', {}, '契約開始年'), yearSel),
         el('div', { class: 'field' }, el('label', {}, '契約開始月'), monthSel),
         el('div', { class: 'field' }, el('label', {}, '契約期間'), termSel),
+        el('div', { class: 'field' }, el('label', {}, 'メイン% (空欄=既定)'), mainPct),
+        el('div', { class: 'field' }, el('label', {}, 'サブ% (空欄=既定)'), subPct),
         el('button', { type: 'submit' }, '登録'))
     );
   }
@@ -542,11 +596,15 @@ async function renderRpoTab(content) {
     myDealsArea.append(myDealsSection(card, deals));
     const tbody = el('tbody');
     for (const d of deals) {
+      const shareLabel = d.mainPercent != null || d.subPercent != null
+        ? `${d.mainPercent ?? '既定'} / ${d.subPercent ?? '既定'}`
+        : '既定';
       const tr = el('tr', {},
         el('td', {}, d.clientName),
         el('td', { class: 'num' }, yen(d.monthlyProfit)),
         el('td', {}, ym(d.startYear, d.startMonth) + ' 開始'),
         el('td', {}, d.termMonths === 6 ? '半年' : '1年'),
+        el('td', {}, shareLabel),
         assignmentCell(card, d, d.mains, 'main'),
         assignmentCell(card, d, d.subs, 'sub'));
 
@@ -568,11 +626,16 @@ async function renderRpoTab(content) {
               tSel.append(
                 el('option', { value: 6, ...(d.termMonths === 6 ? { selected: '' } : {}) }, '半年'),
                 el('option', { value: 12, ...(d.termMonths === 12 ? { selected: '' } : {}) }, '1年'));
+              const mainPct = el('input', { type: 'number', min: 0, max: 100, step: 0.1, placeholder: '既定', style: 'width:70px;' });
+              const subPct = el('input', { type: 'number', min: 0, max: 100, step: 0.1, placeholder: '既定', style: 'width:70px;' });
+              if (d.mainPercent != null) mainPct.value = d.mainPercent;
+              if (d.subPercent != null) subPct.value = d.subPercent;
               tr.replaceChildren(
                 el('td', {}, name),
                 el('td', {}, profit),
                 el('td', {}, ySel, ' ', mSel),
                 el('td', {}, tSel),
+                el('td', {}, mainPct, ' / ', subPct),
                 el('td', { colspan: 3 },
                   el('button', {
                     onclick: async () => {
@@ -585,6 +648,8 @@ async function renderRpoTab(content) {
                             startYear: Number(ySel.value),
                             startMonth: Number(mSel.value),
                             termMonths: Number(tSel.value),
+                            mainPercent: mainPct.value,
+                            subPercent: subPct.value,
                           }),
                         });
                         renderApp();
@@ -619,6 +684,7 @@ async function renderRpoTab(content) {
         el('thead', {}, el('tr', {},
           el('th', {}, '案件名'), el('th', { class: 'num' }, '月間粗利'),
           el('th', {}, '契約開始'), el('th', {}, '期間'),
+          el('th', {}, 'メイン/サブ割合(%)'),
           el('th', {}, 'メイン担当'), el('th', {}, 'サブ担当'), el('th', {}, ''))),
         tbody)));
   } catch (err) {
@@ -1237,10 +1303,10 @@ async function renderSettingsTab(content) {
     el('p', { class: 'note' },
       '保有額（按分後粗利 × 担当割合の合計）の帯ごとに、インセンティブとして支給するパーセンテージを設定します。'),
     tierRow,
-    el('h3', {}, 'RPO: 担当割合（メイン / サブ）'),
+    el('h3', {}, 'RPO: 担当割合（メイン / サブ）の既定値'),
     el('p', { class: 'note' },
-      '保有額の換算とインセンティブ配分に使う割合です（初期値: メイン80% / サブ20%）。' +
-      '例: メインで月100万の案件を2つ → 保有額 160万円。'),
+      '保有額の換算とインセンティブ配分に使う割合の既定値です（初期値: メイン80% / サブ20%）。' +
+      '案件ごとに個別の割合が設定されている場合はそちらが優先されます（RPO案件タブの登録・編集で設定）。'),
     shareRow,
     el('h3', {}, '損益判定ライン'),
     el('p', { class: 'note' },

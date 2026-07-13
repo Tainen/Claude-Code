@@ -203,10 +203,18 @@ function rpoTierPercent(monthlyTotal, tierPercents) {
 }
 
 // 担当1件分の保有額換算: 按分後粗利 × 担当割合（メイン80% / サブ20%）
+// 案件ごとに割合が個別設定されている場合（mainPercent / subPercent）はそちらを優先し、
+// 未設定の案件は全体設定（roleShares）を使う。
+function effectiveShare(assignment, roleShares) {
+  if (assignment.role === 'main') {
+    return assignment.mainPercent ?? roleShares.main ?? 0;
+  }
+  return assignment.subPercent ?? roleShares.sub ?? 0;
+}
+
 function weightedProfit(assignment, roleShares) {
   const members = assignment.roleMemberCount || 1;
-  const share = roleShares[assignment.role] ?? 0;
-  return ((assignment.monthlyProfit / members) * share) / 100;
+  return ((assignment.monthlyProfit / members) * effectiveShare(assignment, roleShares)) / 100;
 }
 
 // 指定支給月に支払われる RPO インセンティブ（対象3ヶ月の月別・案件別内訳つき）
@@ -241,7 +249,7 @@ function rpoIncentiveForPayout(assignments, payoutYear, payoutMonth, tierPercent
       monthlyProfit: a.monthlyProfit,
       members: a.members,
       sharedProfit: Math.round(a.sharedProfit),
-      share: roleShares[a.role] ?? 0,
+      share: effectiveShare(a, roleShares),
       weightedProfit: Math.round(a.weighted),
       amount: Math.round((a.weighted * percent) / 100),
     }));
@@ -317,6 +325,7 @@ module.exports = {
   eventIncentiveForPayout,
   dealActiveInMonth,
   rpoTierPercent,
+  effectiveShare,
   weightedProfit,
   rpoIncentiveForPayout,
   profitSeriesForYear,

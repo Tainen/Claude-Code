@@ -129,6 +129,35 @@ function createApp(dbPath) {
     res.json({ id: Number(result.lastInsertRowid), amount, effectiveYear, effectiveMonth });
   });
 
+  // 自分の基本給履歴を編集（金額・発効年月）
+  app.put('/api/base-salary/:id', auth.requireAuth, (req, res) => {
+    const amount = Number(req.body?.amount);
+    const effectiveYear = Number(req.body?.effectiveYear);
+    const effectiveMonth = Number(req.body?.effectiveMonth);
+    if (!Number.isInteger(amount) || amount < 0) {
+      return res.status(400).json({ error: '基本給は0以上の整数で入力してください' });
+    }
+    if (!isValidYear(effectiveYear) || !isValidMonth(effectiveMonth)) {
+      return res.status(400).json({ error: '発効年月が不正です' });
+    }
+    const result = db
+      .prepare(
+        'UPDATE base_salaries SET amount = ?, effective_year = ?, effective_month = ? WHERE id = ? AND user_id = ?'
+      )
+      .run(amount, effectiveYear, effectiveMonth, Number(req.params.id), req.user.id);
+    if (result.changes === 0) return res.status(404).json({ error: '基本給の記録が見つかりません' });
+    res.json({ ok: true });
+  });
+
+  // 自分の基本給履歴を削除
+  app.delete('/api/base-salary/:id', auth.requireAuth, (req, res) => {
+    const result = db
+      .prepare('DELETE FROM base_salaries WHERE id = ? AND user_id = ?')
+      .run(Number(req.params.id), req.user.id);
+    if (result.changes === 0) return res.status(404).json({ error: '基本給の記録が見つかりません' });
+    res.json({ ok: true });
+  });
+
   // ---------------- 採用イベント（登録はオーナー、閲覧は全員） ----------------
 
   app.get('/api/events', auth.requireAuth, (req, res) => {
@@ -345,7 +374,18 @@ function createApp(dbPath) {
     if (termMonths !== 6 && termMonths !== 12) {
       return { error: '契約期間は半年(6)か1年(12)を選択してください' };
     }
-    return { clientName, monthlyProfit, startYear, startMonth, termMonths };
+    // 案件別のメイン/サブ割合（空欄なら NULL = 全体設定を使用）
+    const parseShare = (v) => {
+      if (v === undefined || v === null || String(v).trim() === '') return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 && n <= 100 ? n : NaN;
+    };
+    const mainPercent = parseShare(body?.mainPercent);
+    const subPercent = parseShare(body?.subPercent);
+    if (Number.isNaN(mainPercent) || Number.isNaN(subPercent)) {
+      return { error: 'メイン/サブ割合は0〜100の数値で入力してください（空欄なら全体設定を使用）' };
+    }
+    return { clientName, monthlyProfit, startYear, startMonth, termMonths, mainPercent, subPercent };
   }
 
   // 全案件を担当者情報つきで返す（社員はここから担当する案件を選ぶ）
@@ -353,7 +393,8 @@ function createApp(dbPath) {
     const deals = db
       .prepare(
         `SELECT id, client_name AS clientName, monthly_profit AS monthlyProfit,
-                start_year AS startYear, start_month AS startMonth, term_months AS termMonths
+                start_year AS startYear, start_month AS startMonth, term_months AS termMonths,
+                main_percent AS mainPercent, sub_percent AS subPercent
          FROM rpo_deals ORDER BY start_year, start_month, id`
       )
       .all();
@@ -379,9 +420,9 @@ function createApp(dbPath) {
     if (v.error) return res.status(400).json({ error: v.error });
     const result = db
       .prepare(
-        'INSERT INTO rpo_deals (client_name, monthly_profit, start_year, start_month, term_months) VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO rpo_deals (client_name, monthly_profit, start_year, start_month, term_months, main_percent, sub_percent) VALUES (?, ?, ?, ?, ?, ?, ?)'
       )
-      .run(v.clientName, v.monthlyProfit, v.startYear, v.startMonth, v.termMonths);
+      .run(v.clientName, v.monthlyProfit, v.startYear, v.startMonth, v.termMonths, v.mainPercent, v.subPercent);
     res.json({ id: Number(result.lastInsertRowid) });
   });
 
@@ -390,9 +431,9 @@ function createApp(dbPath) {
     if (v.error) return res.status(400).json({ error: v.error });
     const result = db
       .prepare(
-        'UPDATE rpo_deals SET client_name = ?, monthly_profit = ?, start_year = ?, start_month = ?, term_months = ? WHERE id = ?'
+        'UPDATE rpo_deals SET client_name = ?, monthly_profit = ?, start_year = ?, start_month = ?, term_months = ?, main_percent = ?, sub_percent = ? WHERE id = ?'
       )
-      .run(v.clientName, v.monthlyProfit, v.startYear, v.startMonth, v.termMonths, Number(req.params.id));
+      .run(v.clientName, v.monthlyProfit, v.startYear, v.startMonth, v.termMonths, v.mainPercent, v.subPercent, Number(req.params.id));
     if (result.changes === 0) return res.status(404).json({ error: '案件が見つかりません' });
     res.json({ ok: true });
   });
@@ -482,6 +523,7 @@ function createApp(dbPath) {
       .prepare(
         `SELECT a.role, d.client_name AS clientName, d.monthly_profit AS monthlyProfit,
                 d.start_year AS startYear, d.start_month AS startMonth, d.term_months AS termMonths,
+                d.main_percent AS mainPercent, d.sub_percent AS subPercent,
                 (SELECT COUNT(*) FROM rpo_assignments a2
                  WHERE a2.deal_id = a.deal_id AND a2.role = a.role) AS roleMemberCount
          FROM rpo_assignments a JOIN rpo_deals d ON d.id = a.deal_id

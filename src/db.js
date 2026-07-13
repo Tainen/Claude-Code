@@ -75,6 +75,8 @@ function createDb(filePath) {
     );
 
     -- RPO 案件（オーナーが登録）。半年 (6ヶ月) または 1年 (12ヶ月) 契約。
+    -- main_percent / sub_percent は案件ごとのメイン/サブ割合 (%)。
+    -- NULL の場合は全体設定 (rpo_main_percent / rpo_sub_percent) を使う。
     CREATE TABLE IF NOT EXISTS rpo_deals (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
       client_name    TEXT NOT NULL,
@@ -82,6 +84,8 @@ function createDb(filePath) {
       start_year     INTEGER NOT NULL,
       start_month    INTEGER NOT NULL CHECK (start_month BETWEEN 1 AND 12),
       term_months    INTEGER NOT NULL CHECK (term_months IN (6, 12)),
+      main_percent   REAL,
+      sub_percent    REAL,
       created_at     TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -108,6 +112,7 @@ function createDb(filePath) {
   migrateEventOrderAmount(db);
   migrateOrderAmountToUnitPrice(db);
   migrateRpoTierSettings(db);
+  migrateDealShareColumns(db);
 
   const insertSetting = db.prepare(
     'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)'
@@ -213,6 +218,19 @@ function migrateOrderAmountToUnitPrice(db) {
     'UPDATE event_orders SET amount = CAST(ROUND(amount * 1.0 / slots) AS INTEGER) WHERE slots > 1'
   );
   setSetting(db, 'order_amount_is_unit_price', '1');
+}
+
+// 旧スキーマ（rpo_deals に案件別割合の列がない）からの移行。
+// 既存案件は NULL（= 全体設定を使用）のままなので計算結果は変わらない。
+function migrateDealShareColumns(db) {
+  const cols = db
+    .prepare("SELECT name FROM pragma_table_info('rpo_deals')")
+    .all()
+    .map((r) => r.name);
+  if (!cols.includes('main_percent')) {
+    db.exec('ALTER TABLE rpo_deals ADD COLUMN main_percent REAL');
+    db.exec('ALTER TABLE rpo_deals ADD COLUMN sub_percent REAL');
+  }
 }
 
 // 旧設定（4段階: 〜100万/〜150万/〜200万/200万超）から
