@@ -98,14 +98,26 @@ function restructureShodanSheet() {
   var target = ss.getSheetByName(TARGET_SHEET_NAME);
   if (target) {
     target.clear();
+    target.clearNotes();
+    if (target.getFilter()) target.getFilter().remove();
   } else {
     target = ss.insertSheet(TARGET_SHEET_NAME);
   }
+  // 新規シートは既定 26 列（A〜Z）なので、31 列（A〜AE）分を先に確保する
+  ensureSize(target, out.length, TOTAL_COLS);
 
   target.getRange(1, 1, out.length, TOTAL_COLS).setValues(out);
   formatTarget(target, out.length);
   SpreadsheetApp.getActiveSpreadsheet().toast(
     (out.length - 1) + ' 行を書き出しました', TARGET_SHEET_NAME, 10);
+}
+
+/** 書き込みに必要な行数・列数を確保する（不足分だけ追加）。 */
+function ensureSize(sheet, rows, cols) {
+  var maxRows = sheet.getMaxRows();
+  if (maxRows < rows) sheet.insertRowsAfter(maxRows, rows - maxRows);
+  var maxCols = sheet.getMaxColumns();
+  if (maxCols < cols) sheet.insertColumnsAfter(maxCols, cols - maxCols);
 }
 
 function isBlockEmpty(row, startCol, width) {
@@ -147,4 +159,12 @@ function formatTarget(sheet, rowCount) {
 
   sheet.setFrozenRows(1);
   sheet.setFrozenColumns(3);
+}
+
+/** スプレッドシートを開いたときにメニューを追加する。 */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('商談管理')
+    .addItem('新フォーマットに変換', 'restructureShodanSheet')
+    .addToUi();
 }
