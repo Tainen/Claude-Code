@@ -13,7 +13,7 @@ voco.co.jp（Studio製）の「お役立ち記事」に載せる記事を、毎�
 1. Google ドキュメント：`No.{番号}_{タイトル}`（Drive「HP / お役立ち記事」フォルダ、ID `1klA79rJRmpGTfMJZUL5fUFr2ViNZ0Bfj`）
    - 先頭に「掲載用メタ情報」（タイトル・メタディスクリプション・カテゴリ・想定文字数・参考にした資料URL）
    - 本文は Studio のリッチテキストに貼れる構造のみ使う：H2 / H3 / 段落 / 箇条書き / 番号付き / 引用 / リンク。表・画像埋め込み・インラインCSSは使わない（Studio側で崩れる）
-2. カバー画像 PNG：`No.{番号}_cover.png`（同フォルダ、1200×630）
+2. カバー画像 PNG：`content/articles/out/No.{番号}_cover.png`（リポジトリに commit & push。Drive へは base64 が大きすぎて上げられないため）。あわせて `SendUserFile` で堀本さんに送る
 3. HubSpot にブログが存在する場合のみ：同内容を **下書き** で作成（公開はしない）
 4. 作業ログ：作った物のURL、参考にした資料、迷った点を最後に短く報告する
 
@@ -61,7 +61,8 @@ voco.co.jp（Studio製）の「お役立ち記事」に載せる記事を、毎�
 - 画像内に人物の顔・他社ロゴ・実在の学生写真風の表現は入れない。
 
 ### 6. 出力
-- Google Drive：`create_file` で Doc（`contentMimeType: text/html`、`parentId` は上記フォルダ）と PNG（`base64Content`、`contentMimeType: image/png`、`disableConversionToGoogleType: true`）を作成。
+- Google Drive：`create_file` で Doc（`contentMimeType: text/html`、`parentId` は上記フォルダ）を作成。
+- 画像と保管用HTML：`content/articles/out/No.{番号}_cover.png` と `No.{番号}_article.html` を保存し、ブランチ `claude/voco-homepage-articles-ys5zwk` に commit & push（`git pull` してから）。PNG は `SendUserFile` でチャットにも添付する。GitHub 上のパスは `https://github.com/Tainen/Claude-Code/blob/claude/voco-homepage-articles-ys5zwk/content/articles/out/`。
 - HubSpot：`manage_blog_post` の `LIST_BLOGS` でブログが 1 つ以上あれば、`CREATE` で下書きを作る（`metaDescription` とタグを付ける。タグは `LIST_TAGS` にある既存のものだけ。無ければタグなし）。**PUBLISH は絶対にしない。** ブログが無ければ HubSpot は触らない。
 - 途中で失敗しても、できた成果物の URL は必ず報告する。
 
@@ -72,7 +73,7 @@ voco.co.jp（Studio製）の「お役立ち記事」に載せる記事を、毎�
 - [ ] 他社記事の文章の写しがない
 - [ ] 盛った表現・断定しすぎ・読者を責める表現がない
 - [ ] CTA が固定文言のまま
-- [ ] Doc と PNG が Drive フォルダにある
+- [ ] Doc が Drive フォルダにあり、PNG と HTML が `content/articles/out/` に push されている
 
 ## 7分類（カテゴリ）
 1 新卒採用の基本・進め方／2 採用イベント・合同説明会／3 母集団形成・学生との接点／4 会社説明会・採用資料・伝え方／5 内定者フォロー・辞退防止／6 採用体制・採用代行の選び方／7 地方・中小企業の採用
@@ -81,5 +82,5 @@ voco.co.jp（Studio製）の「お役立ち記事」に載せる記事を、毎�
 1. Studio ダッシュボード → CMS → 「お役立ち記事」モデル → アイテム追加
 2. タイトル・スラッグ（`article-{番号}`）・カテゴリ・公開日を入力
 3. Doc の本文を H2/H3/段落ごとにリッチテキストへ貼る（Doc からコピーすると見出しレベルも保持されることが多い）
-4. カバー画像 PNG をサムネイル／OGP に設定
+4. カバー画像 PNG（GitHub の content/articles/out/ からダウンロード、またはチャットの添付）をサムネイル／OGP に設定
 5. 保存 → 公開。TOP の「お役立ち記事」枠は週1で最新3本に差し替え
