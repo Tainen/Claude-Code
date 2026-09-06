@@ -14,7 +14,7 @@ description: 株式会社VOCO（新卒採用コンサル・採用代行/RPO・�
 ## 成果物（1記事あたり）
 1. `content/articles/out/No.{番号}_article.html` … 正本。先頭の HTML コメントに「タイトル／メタディスクリプション／カテゴリ／H2 に指定する行／画像の位置／CTA 注記」を書く。本文は `<h2> <h3> <p> <ul><li> <ol><li>` のみ。
 2. Google ドキュメント `No.{番号}_{タイトル}`（Drive「HP / お役立ち記事」フォルダ、ID `1klA79rJRmpGTfMJZUL5fUFr2ViNZ0Bfj`）… 正本の HTML をそのまま `text/html` で作成。堀本さんはここからコピーして Studio に貼る。
-3. 記事中画像 `content/articles/out/No.{番号}_img1.png` 〜 `img3.png` … 環境変数 `GEMINI_API_KEY` がある場合のみ生成。無い場合は本文の「【画像：◯◯】…」プレースホルダーだけ残し、報告に「画像は未生成（キー未設定）」と書く。
+3. 記事中画像 `content/articles/out/No.{番号}_img1.png` 〜 `img3.png` … 必ず3枚作る。環境変数 `GEMINI_API_KEY` があれば写実的なAI画像（`make-image-gemini.mjs`）、無ければフラットイラスト（`make-scene.mjs`）で生成する。どちらで作ったかを報告に書く。
 4. HubSpot にブログが存在する場合のみ、同内容を **下書き** で作成（公開はしない）。
 5. 報告：Doc の URL、Git のパス、参考にした資料、チェック結果、迷った点。
 
@@ -73,7 +73,9 @@ description: 株式会社VOCO（新卒採用コンサル・採用代行/RPO・�
 ### 5. 記事中画像（3枚）
 - H2 の区切りに 3 枚。位置は「【画像：シーン名】キャプション」の `<p>` を H2 の直前に置く。シーン名は `meeting`（社内会議）／`briefing`（会社説明会）／`interview`（面接）／`event`（合同説明会ブース）／`onboarding`（内定者・入社後のフォロー）／`desk`（担当者の事務作業）から選ぶ。
 - 必ずビジネスパーソンが写っている一場面にする（採用のワンシーン、面接、社内会議など）。抽象イラストや風景だけの画像にしない。
-- `GEMINI_API_KEY` がある場合：`node tools/article/make-image-gemini.mjs --scene interview --caption "<キャプション>" --out content/articles/out/No.xxx_img1.png` を 3 回。失敗したらプレースホルダーのままにして報告する。
+- `GEMINI_API_KEY` がある場合：`node tools/article/make-image-gemini.mjs --scene interview --caption "<キャプション>" --out content/articles/out/No.xxx_img1.png` を 3 回。失敗したら下のイラストにフォールバックし、報告に書く。
+- `GEMINI_API_KEY` が無い場合：`node tools/article/make-scene.mjs --scene interview --out content/articles/out/No.xxx_img1.png` を 3 回（ブランド配色のフラットイラスト。写真が用意できるまでの暫定）。
+- 本文の「【画像：シーン名】」のシーン名は `meeting/briefing/interview/event/onboarding/desk` の英語名も併記する（例：【画像：会議 meeting】）。3枚は同じシーンを重複させない。
 - 画像内に文字・ロゴ・実在人物を思わせる表現を入れない。生成画像は `SendUserFile` でチャットにも添付する。
 - カバー画像（メイン）は堀本さんが自作する。依頼されたときだけ `make-cover.mjs` を使う。
 
