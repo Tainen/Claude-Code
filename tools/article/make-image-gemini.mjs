@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 記事中画像を Gemini API で生成する（GEMINI_API_KEY が設定されている環境でのみ動作）
-// 使い方: node tools/article/make-image-gemini.mjs --scene interview --caption "..." --out No.001_img1.png [--model gemini-2.5-flash-image]
+// 使い方: node tools/article/make-image-gemini.mjs --scene interview --caption "..." --out No.001_img1.png [--model gemini-2.5-flash-image] [--aspect 16:9]
 // scene: meeting | briefing | interview | event | onboarding | desk | group | report
 // 失敗時は非0終了。呼び出し側はプレースホルダー（【画像：…】）を残して報告すること。
 import { writeFileSync } from 'node:fs';
@@ -32,7 +32,7 @@ const caption = args.caption || '';
 const model = args.model || 'gemini-2.5-flash-image';
 const out = args.out || 'image.png';
 
-const prompt = `Photorealistic editorial photograph for a Japanese recruiting consultancy blog. Scene: ${scene}. ${caption ? 'Context: ' + caption + '.' : ''} Natural window light, realistic Japanese business people in their 20s to 50s, candid working moment, shallow depth of field, 16:9 landscape. Rules: no text, no logos, no signage, no watermark, do not depict any real or famous person, clean modern office aesthetic with muted colors and one subtle orange accent (a folder, a lanyard or a chair).`;
+const prompt = `Photorealistic editorial photograph for a Japanese recruiting consultancy blog. Scene: ${scene}. ${caption ? 'Context: ' + caption + '.' : ''} Natural window light, realistic Japanese business people in their 20s to 50s, candid working moment, shallow depth of field, 16:9 landscape. Rules: absolutely no text, letters, numbers or pseudo-text anywhere (papers must be blank or show only simple charts and lines, screens show only abstract blocks, calendars and whiteboards have no writing), no brand logos on laptops or phones, no signage, no watermark, do not depict any real or famous person, clean modern office aesthetic with muted colors and one subtle orange accent (a folder, a lanyard or a chair).`;
 
 const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 const headers = { 'content-type': 'application/json' };
@@ -40,7 +40,7 @@ if (!viaProxy) headers['x-goog-api-key'] = key; // URL にキーを載せない�
 const res = await fetch(url, {
   method: 'POST',
   headers,
-  body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['IMAGE'] } }),
+  body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: args.aspect || '16:9' } } }),
 });
 if (!res.ok) { console.error(`Gemini API error ${res.status}: ${await res.text()}`); process.exit(1); }
 const json = await res.json();
