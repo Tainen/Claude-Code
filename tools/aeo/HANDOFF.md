@@ -32,14 +32,19 @@
 
 ## 4. 未対応（要判断・要作業）
 
-1. **STUDIO の生HTML検証**（テスト記事1本の公開と curl 確認）。未了のまま記事を積むと空振りになる。
-2. **「年間500回」と「年間200回以上」の不一致。** AEO設計図は 500 回、HP 確定版は 200 回以上。記事は HP 確定版に従い 200 回以上で書いた。500 を使うなら HP 側の数字を先に更新し、`SKILL.md` 4 節を書き換える。
-3. **著者の肩書き**（代表／取締役 等）が未確定。記事の著者行は「堀本 大然（株式会社VOCO）」のみ。
-4. **Studio の本文が表（table）に対応するかの確認。** 非対応なら HTML の表を箇条書きに置き換えて貼る（記事の先頭コメントに置換方法を記載）。
-5. **構造化データ（Article／FAQPage／Organization）を貼れるプランか。** 各記事の先頭コメントに FAQPage JSON-LD を用意済み。
-6. **層Aの予算枠**（月9〜10万円の配分案）と PR TIMES スタートアップチャレンジの対象可否。
-7. **事例の実名掲載の許諾**（/case）。層Aに最も効く。
-8. **記事中画像の質。** GEMINI_API_KEY が無い環境ではフラットイラスト（`make-scene.mjs`）で生成している。写実的な画像が必要なら API キーを環境に入れて `make-image-gemini.mjs` で再生成する。
+1. **STUDIO の生HTML検証**（テスト記事1本の公開と `bash tools/aeo/check-ssr.sh <記事URL>` での確認）。未了のまま記事を積むと空振りになる。
+2. **構造化データ（Article／FAQPage／Organization）を貼れるプランか。** 各記事の先頭コメントに FAQPage JSON-LD を用意済み。
+3. **層Aの予算枠**（月9〜10万円の配分案）と PR TIMES スタートアップチャレンジの対象可否。
+4. **事例の実名掲載の許諾**（/case）。層Aに最も効く。
+5. **記事中画像の写実化。** `GEMINI_API_KEY` を設定して `node tools/article/make-images-from-article.mjs No.004 No.005 No.006 No.007 No.008` で再生成する。
+
+### 4-1. 2026-09-13 に確定した事項（堀本さん回答）
+
+- 登壇回数は **「年間200回以上」で統一**。「年間500回」は使わない。
+- 著者の肩書きは **「経営戦略本部マネージャー」**。著者行は「堀本 大然（株式会社VOCO 経営戦略本部マネージャー）」。
+- Studio は **Personal プランで表（table）に対応**。比較表はそのまま貼る。
+- イベント後の連絡は **「できるだけ当日、遅くとも翌日から3日以内」** が VOCO の運用ルール（No.005・No.008 に反映済み）。
+- 「実働型採用コンサル」の定義文（3要素：方針を経営者と決める／自ら現場に立つ／現場の結果で方針を組み替える）は VOCO の自己認識と一致。**No.007 が今後の定義の基準**。
 
 ## 5. ファイルの地図
 
@@ -50,6 +55,8 @@
 - `tools/article/check-article.mjs` … 出稿前チェック（合格が出るまで出力しない）
 - `tools/article/make-scene.mjs` … 画像のフォールバック（scene: meeting / briefing / interview / event / onboarding / desk / group / report）
 - `tools/article/make-image-gemini.mjs` … 写実画像（GEMINI_API_KEY が必要）
+- `tools/article/make-images-from-article.mjs` … 記事HTMLの【画像：…】行を読んで3枚を一括生成（キーがあれば Gemini、無ければイラスト）
+- `tools/aeo/check-ssr.sh` … STUDIO 公開ページの生HTMLに本文が出ているかを UA 別に確認
 
 ## 6. 実行の流れ（1本あたり）
 

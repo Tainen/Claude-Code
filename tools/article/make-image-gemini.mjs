@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 記事中画像を Gemini API で生成する（GEMINI_API_KEY が設定されている環境でのみ動作）
 // 使い方: node tools/article/make-image-gemini.mjs --scene interview --caption "..." --out No.001_img1.png [--model gemini-2.5-flash-image]
-// scene: meeting | briefing | interview | event | onboarding | desk
+// scene: meeting | briefing | interview | event | onboarding | desk | group | report
 // 失敗時は非0終了。呼び出し側はプレースホルダー（【画像：…】）を残して報告すること。
 import { writeFileSync } from 'node:fs';
 
@@ -21,6 +21,8 @@ const SCENES = {
   event: 'a booth at a Japanese joint company briefing (job fair) in a convention hall, a recruiter standing and speaking with two students in dark suits, other booths blurred behind',
   onboarding: 'a Japanese company office, a manager warmly talking with a newly hired young employee at a desk, welcoming atmosphere',
   desk: 'a Japanese office worker in charge of recruiting, working at a desk with a calendar, a phone and a laptop, organizing interview schedules',
+  group: 'a small-group career talk at a Japanese university meeting room, one company recruiter in business attire sitting at a round table with four university students (some in team tracksuits, some in dark suits), relaxed conversation, printed handouts on the table',
+  report: 'a Japanese small company meeting room, a recruiting staff member standing and showing a one-page sheet of event results to the company president who is seated and listening, whiteboard behind them',
 };
 const scene = SCENES[args.scene] || SCENES.meeting;
 const caption = args.caption || '';
