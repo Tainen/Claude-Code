@@ -11,8 +11,11 @@ const args = Object.fromEntries(
     return acc;
   }, [])
 );
+// GEMINI_API_KEY: Google AI Studio で取得したキー。
+// 値を "proxy" にすると、キーを送らず環境側の API credential（Anthropic のエージェントプロキシがヘッダーを付ける方式）に任せる。
 const key = process.env.GEMINI_API_KEY;
 if (!key) { console.error('GEMINI_API_KEY が未設定です'); process.exit(2); }
+const viaProxy = key === 'proxy';
 
 const SCENES = {
   meeting: 'a small Japanese company meeting room, a company president in his 50s and two staff members discussing a hiring plan at a table with printed documents and a laptop',
@@ -31,10 +34,12 @@ const out = args.out || 'image.png';
 
 const prompt = `Photorealistic editorial photograph for a Japanese recruiting consultancy blog. Scene: ${scene}. ${caption ? 'Context: ' + caption + '.' : ''} Natural window light, realistic Japanese business people in their 20s to 50s, candid working moment, shallow depth of field, 16:9 landscape. Rules: no text, no logos, no signage, no watermark, do not depict any real or famous person, clean modern office aesthetic with muted colors and one subtle orange accent (a folder, a lanyard or a chair).`;
 
-const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+const headers = { 'content-type': 'application/json' };
+if (!viaProxy) headers['x-goog-api-key'] = key; // URL にキーを載せない（ログ・履歴に残さない）
 const res = await fetch(url, {
   method: 'POST',
-  headers: { 'content-type': 'application/json' },
+  headers,
   body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['IMAGE'] } }),
 });
 if (!res.ok) { console.error(`Gemini API error ${res.status}: ${await res.text()}`); process.exit(1); }
