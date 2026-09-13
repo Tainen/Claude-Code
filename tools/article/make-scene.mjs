@@ -2,7 +2,7 @@
 // 記事中画像のフォールバック生成（AI画像 API が使えない環境向け）
 // ビジネスシーンのフラットイラストを SVG で描き、Playwright で PNG 化する。
 // 使い方: node tools/article/make-scene.mjs --scene interview --out No.001_img1.png [--variant light|dark]
-// scene: meeting | briefing | interview | event | onboarding | desk
+// scene: meeting | briefing | interview | event | onboarding | desk | group | report
 import { writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const req = createRequire(import.meta.url);
@@ -128,6 +128,28 @@ const scenes = {
     person({ x: 620, y: 640, s: 1, pose: 'sit', face: 'right', arm: 'table', tie: true, hair: '#6b6b6b' }),
     person({ x: 900, y: 640, s: 1, pose: 'sit', face: 'left', arm: 'table', suit: '#3b3f4a', shirt: '#eef2f7' }),
     paper(760, 500, 1, 0), laptop(560, 520, 0.9)].join(''),
+  // 少人数グループ面談（部活動連携イベント・座談会）：社員1人と学生4人が丸テーブルを囲む
+  group: () => [room(), window_(1180, 110, 320, 260), plant(110, 660, 1.1),
+    // 奥側（テーブルの向こう）は先に描き、テーブルで脚を隠す
+    person({ x: 660, y: 640, s: 0.85, pose: 'sit', face: 'front', arm: 'table', suit: '#1f232b', hair: HAIR[1] }),
+    person({ x: 940, y: 640, s: 0.85, pose: 'sit', face: 'front', arm: 'table', suit: '#23272f', hair: HAIR[2], glasses: true }),
+    person({ x: 800, y: 630, s: 0.9, pose: 'sit', face: 'front', arm: 'raise', tie: true, hair: '#4a3728', shirt: '#eef2f7' }),
+    `<ellipse cx="800" cy="600" rx="330" ry="72" fill="${C.wood}"/>`,
+    `<rect x="770" y="640" width="60" height="120" fill="${C.wood}"/>`,
+    paper(720, 585, 0.8, -8), paper(880, 585, 0.8, 6),
+    // 手前側（横向きに座る学生2人）
+    chair(560, 720, 0.95), chair(1040, 720, 0.95),
+    person({ x: 560, y: 700, s: 0.95, pose: 'sit', face: 'right', arm: 'table', suit: '#1f232b', hair: HAIR[0] }),
+    person({ x: 1040, y: 700, s: 0.95, pose: 'sit', face: 'left', arm: 'table', suit: '#23272f', hair: HAIR[3] })].join(''),
+  // 結果報告：担当者が数字の書かれたボードを示し、社長が席で聞く
+  report: () => [room(), window_(1200, 120, 280, 240), plant(1500, 660, 1.1),
+    board(140, 110, 560, 360),
+    `<g stroke="${C.accent}" stroke-width="10" fill="none" stroke-linecap="round"><path d="M200,420 L320,360 L440,380 L560,300 L640,320"/></g>`,
+    `<g fill="${C.accent}"><circle cx="320" cy="360" r="12"/><circle cx="440" cy="380" r="12"/><circle cx="560" cy="300" r="12"/></g>`,
+    table(760, 520, 560), chair(1000, 660),
+    person({ x: 1000, y: 640, s: 1, pose: 'sit', face: 'left', arm: 'table', tie: true, hair: '#6b6b6b', glasses: true }),
+    paper(900, 500, 0.9, -6), laptop(1140, 520, 0.9),
+    person({ x: 740, y: 660, s: 1.05, pose: 'stand', face: 'left', arm: 'point', shirt: '#eef2f7' })].join(''),
   desk: () => [room(), window_(1100, 120, 380, 280), `<rect x="180" y="130" width="300" height="220" fill="${C.paper}" stroke="${C.line}" stroke-width="6"/><g fill="${C.line}">${[0,1,2,3,4].map(r=>[0,1,2,3,4,5,6].map(c=>`<rect x="${205+c*38}" y="${180+r*32}" width="26" height="20" rx="3" ${r===2&&c===3?`fill="${C.accent}"`:''}/>`).join('')).join('')}</g>`,
     table(420, 520, 760), chair(760, 660),
     person({ x: 760, y: 640, s: 1, pose: 'sit', face: 'front', arm: 'table', shirt: '#eef2f7', glasses: true }),
