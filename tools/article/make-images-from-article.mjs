@@ -26,9 +26,7 @@ for (const no of nos) {
   marks.forEach((m, i) => {
     const scene = m[2], caption = m[3].trim();
     const out = resolve(OUT, `${no}_img${i + 1}.png`);
-    if (existsSync(out) && !force && useGemini) {
-      // 既存がフラットイラストなら Gemini で置き換えたいはずなので、--force 無しでも上書きする
-    }
+    if (existsSync(out) && !force && !useGemini) { console.log(`${no} img${i + 1}: 既存を維持（上書きは --force）`); return; }
     let r;
     if (useGemini) {
       r = spawnSync('node', [resolve(here, 'make-image-gemini.mjs'), '--scene', scene, '--caption', caption, '--out', out], { stdio: 'inherit' });
