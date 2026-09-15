@@ -13,7 +13,7 @@ description: 株式会社VOCO（新卒採用コンサル・採用代行/RPO・�
 
 ## 成果物（1記事あたり）
 1. `content/articles/out/No.{番号}_article.html` … 正本。先頭の HTML コメントに「タイトル／メタディスクリプション／カテゴリ／H2 に指定する行／画像の位置／CTA 注記」を書く。本文は `<h2> <h3> <p> <ul><li> <ol><li>` のみ。
-2. Google ドキュメント `No.{番号}_{タイトル}`（Drive「HP / お役立ち記事」フォルダ、ID `1klA79rJRmpGTfMJZUL5fUFr2ViNZ0Bfj`）… 正本の HTML をそのまま `text/html` で作成。堀本さんはここからコピーして Studio に貼る。
+2. Google ドキュメント `No.{番号}_{タイトル}`（Drive「HP / お役立ち記事 / 確認前」フォルダ）… `node tools/article/make-doc-html.mjs No.xxx --out <path>` で作った HTML を `text/html` で作成。冒頭と各 H2 直下の第1文が太字（マーカー）になり、画像が埋め込まれ、H2 の帯・表ヘッダーに確認用のオレンジ装飾が付く。強調したい文が第1文でない節は、正本の HTML でその文を `<strong>` で囲む（その節は自動太字をしない）。装飾は Studio に貼ると消え、太字だけが残る（見た目は Studio のテンプレート側で設定。`tools/aeo/studio-style-prompt.md`）。堀本さんはここからコピーして Studio に貼る。
 3. 記事中画像 `content/articles/out/No.{番号}_img1.png` 〜 `img3.png` … 必ず3枚作る。環境変数 `GEMINI_API_KEY` があれば写実的なAI画像（`make-image-gemini.mjs`）、無ければフラットイラスト（`make-scene.mjs`）で生成する。どちらで作ったかを報告に書く。
 4. HubSpot にブログが存在する場合のみ、同内容を **下書き** で作成（公開はしない）。
 5. 報告：Doc の URL、Git のパス、参考にした資料、チェック結果、迷った点。
