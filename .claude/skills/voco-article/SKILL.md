@@ -13,7 +13,7 @@ description: 株式会社VOCO（新卒採用コンサル・採用代行/RPO・�
 
 ## 成果物（1記事あたり）
 1. `content/articles/out/No.{番号}_article.html` … 正本。先頭の HTML コメントに「タイトル／メタディスクリプション／カテゴリ／H2 に指定する行／画像の位置／CTA 注記」を書く。本文は `<h2> <h3> <p> <ul><li> <ol><li>` のみ。
-2. Google ドキュメント `No.{番号}_{タイトル}`（Drive「HP / お役立ち記事 / 確認前」フォルダ）… `node tools/article/make-doc-html.mjs No.xxx --out <path>` で作った HTML を `text/html` で作成。冒頭と各 H2 直下の第1文が太字（マーカー）になり、画像が埋め込まれ、H2 の帯・表ヘッダーに確認用のオレンジ装飾が付く。強調したい文が第1文でない節は、正本の HTML でその文を `<strong>` で囲む（その節は自動太字をしない）。装飾は Studio に貼ると消え、太字だけが残る（見た目は Studio のテンプレート側で設定。`tools/aeo/studio-style-prompt.md`）。堀本さんはここからコピーして Studio に貼る。
+2. Google ドキュメント `No.{番号}_{タイトル}`（Drive「HP / お役立ち記事 / 確認前」フォルダ）… `node tools/article/make-doc-html.mjs No.xxx --out <path>` で作った HTML を `text/html` で作成。冒頭と各 H2 直下の第1文が太字になり、画像が埋め込まれ、末尾に区切り線＋「掲載用メタ情報」（タイトル・スラッグ・カテゴリ・ディスクリプション・H2 一覧・FAQ JSON-LD）が付く。装飾（色）は付けない。見た目は Studio のテンプレート側で付く（`tools/aeo/studio-style-prompt.md`）。強調したい文が第1文でない節は、正本の HTML でその文を `<strong>` で囲む（その節は自動太字をしない）。入稿は Claude in Chrome に `tools/aeo/studio-paste-prompt.md` を渡して行う。
 3. 記事中画像 `content/articles/out/No.{番号}_img1.png` 〜 `img3.png` … 必ず3枚作る。環境変数 `GEMINI_API_KEY` があれば写実的なAI画像（`make-image-gemini.mjs`）、無ければフラットイラスト（`make-scene.mjs`）で生成する。どちらで作ったかを報告に書く。
 4. HubSpot にブログが存在する場合のみ、同内容を **下書き** で作成（公開はしない）。
 5. 報告：Doc の URL、Git のパス、参考にした資料、チェック結果、迷った点。
@@ -106,6 +106,7 @@ node tools/article/check-article.mjs content/articles/out/No.xxx_article.html --
 1 新卒採用の基本・進め方／2 採用イベント・合同説明会／3 母集団形成・学生との接点／4 会社説明会・採用資料・伝え方／5 内定者フォロー・辞退防止／6 採用体制・採用代行の選び方／7 地方・中小企業の採用
 
 ## Studio へ貼るときの手順（堀本さん向け）
+基本は Claude in Chrome に任せる：Studio の CMS を開き、`tools/aeo/studio-paste-prompt.md` の本文を貼って、1行目に Doc の URL を入れる。下書き保存まで自動。人はプレビュー確認と公開ボタンだけ。手で行う場合は以下。
 1. CMS →「お役立ち記事」モデル → アイテム追加。タイトル欄に Doc 冒頭のタイトルを入れる（本文にはタイトルを貼らない）。
 2. スラッグ `article-{番号}`、カテゴリ、公開日を入力。
 3. Doc の本文を貼る。「H2 に指定する行」の一覧を見て、見出しレベルが落ちていたら H2 に直す。まとめはリストブロックにする。

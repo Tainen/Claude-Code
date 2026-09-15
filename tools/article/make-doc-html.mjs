@@ -2,12 +2,14 @@
 // 記事HTML（content/articles/out/No.xxx_article.html）から Google ドキュメント用の HTML を作る。
 //  - 冒頭の結論文と、各 H2 直下の第1文を太字（<strong>）にする（すでに <strong> がある段落は触らない）
 //  - 【画像：…】行を、公開リポジトリの raw URL を指す <img> に置き換える（Docs 取り込み時に埋め込まれる）
-//  - 確認用の装飾（インラインスタイル）：H2 はオレンジの帯、太字はマーカー、表ヘッダーは薄オレンジ背景
-//    ※ Studio に貼ると装飾は消え、太字・見出し・リスト・表だけが残る。装飾はレビュー用のプレビュー。
-// 使い方: node tools/article/make-doc-html.mjs No.004 [--with-meta] [--no-bold] [--plain] [--out path]
-//   --with-meta : 先頭コメントのメタ情報（タイトル・ディスクリプション・FAQ JSON-LD 等）を Doc の冒頭に付ける
+//  - 末尾に「掲載用メタ情報」（タイトル・スラッグ・ディスクリプション・FAQ JSON-LD 等）を付ける。
+//    Studio へ貼る Claude in Chrome（tools/aeo/studio-paste-prompt.md）がここを読む。本文には貼らない。
+//  - 既定は装飾なし（太字だけ）。見た目は Studio のテンプレート側で付く（tools/aeo/studio-style-prompt.md）。
+//    --decorate を付けると確認用にオレンジの帯・マーカー・表ヘッダー背景をインラインスタイルで付ける。
+// 使い方: node tools/article/make-doc-html.mjs No.004 [--no-meta] [--no-bold] [--decorate] [--out path]
+//   --no-meta   : 末尾のメタ情報を付けない
 //   --no-bold   : 結論文の自動太字をしない
-//   --plain     : 装飾（色・マーカー）を付けない
+//   --decorate  : 確認用の装飾（色・マーカー）を付ける
 //   --branch    : 画像 URL のブランチ名（既定: 現在のブランチ）
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
@@ -18,10 +20,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, '../../content/articles/out');
 const args = process.argv.slice(2);
 const no = args.find((a) => /^No\.\d{3}$/.test(a));
-if (!no) { console.error('使い方: node tools/article/make-doc-html.mjs No.004 [--with-meta] [--no-bold] [--plain] [--out path]'); process.exit(2); }
-const withMeta = args.includes('--with-meta');
+if (!no) { console.error('使い方: node tools/article/make-doc-html.mjs No.004 [--no-meta] [--no-bold] [--decorate] [--out path]'); process.exit(2); }
+const withMeta = !args.includes('--no-meta');
 const noBold = args.includes('--no-bold');
-const plain = args.includes('--plain');
+const plain = !args.includes('--decorate');
 const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
 const outPath = opt('--out');
 const branch = opt('--branch') || execSync('git rev-parse --abbrev-ref HEAD', { cwd: here }).toString().trim();
@@ -90,16 +92,17 @@ if (!plain) {
   body = body.replace(/<h2>([\s\S]*?)<\/h2>/g, '<h2><strong>$1</strong></h2>').replace(/<h3>([\s\S]*?)<\/h3>/g, '<h3><strong>$1</strong></h3>');
 }
 
-// 4) 組み立て
+// 4) 組み立て（本文 → 区切り線 → 掲載用メタ情報）
 const parts = [`<html><head><meta charset="utf-8"><title>${esc(title)}</title></head><body>`];
-if (withMeta) {
-  parts.push('<h2>掲載用メタ情報（この見出しから下の区切り線までは本文に貼らない）</h2>');
-  parts.push(`<p>画像：本文中の${n}枚は Git（content/articles/out/${no}_img1〜${n}.png）と同一。Studio にはこの Doc の画像を右クリック保存して入れる</p>`);
-  parts.push('<p>装飾について：H2 の帯・太字のマーカー・表ヘッダーの色は確認用。Studio に貼ると消え、太字・見出し・リスト・表だけが残る（見た目は Studio のテンプレート側で設定）</p>');
-  for (const l of metaLines.slice(1)) parts.push(`<p>${esc(l)}</p>`);
-  parts.push('<hr>');
-}
 parts.push(body.trim());
+if (withMeta) {
+  parts.push('<hr>');
+  parts.push('<h2>掲載用メタ情報（この区切り線より下は本文に貼らない）</h2>');
+  parts.push(`<p>記事番号：${no}／スラッグ：article-${no.replace('No.', '')}</p>`);
+  parts.push(`<p>画像：本文中の${n}枚は Git（content/articles/out/${no}_img1〜${n}.png）と同一。Studio には Doc 内の画像を保存して入れる</p>`);
+  parts.push('<p>太字：本文中の太字は Studio でマーカー付きの強調になる箇所。貼り付け後に太字が残っているか確認する</p>');
+  for (const l of metaLines.slice(1)) parts.push(`<p>${esc(l)}</p>`);
+}
 parts.push('</body></html>');
 const html = parts.join('\n');
 if (outPath) { writeFileSync(outPath, html); console.error(`${no}: ${outPath} に書き出し（画像 ${n} 枚、太字 ${(body.match(/<strong>/g) || []).length} 箇所）`); }
