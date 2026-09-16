@@ -4,12 +4,12 @@
 //  - 【画像：…】行を、公開リポジトリの raw URL を指す <img> に置き換える（Docs 取り込み時に埋め込まれる）
 //  - 末尾に「掲載用メタ情報」（タイトル・スラッグ・ディスクリプション・FAQ JSON-LD 等）を付ける。
 //    Studio へ貼る Claude in Chrome（tools/aeo/studio-paste-prompt.md）がここを読む。本文には貼らない。
-//  - 既定は装飾なし（太字だけ）。見た目は Studio のテンプレート側で付く（tools/aeo/studio-style-prompt.md）。
-//    --decorate を付けると確認用にオレンジの帯・マーカー・表ヘッダー背景をインラインスタイルで付ける。
-// 使い方: node tools/article/make-doc-html.mjs No.004 [--no-meta] [--no-bold] [--decorate] [--out path]
+//  - 既定で装飾あり：H2 はオレンジの帯、太字はマーカー、表ヘッダーは薄オレンジ背景（堀本さん確定 2026-09-16）。
+//    Studio に貼ると色は消え太字だけ残る。Studio 側の見た目はテンプレートで付く（tools/aeo/studio-style-prompt.md）。
+// 使い方: node tools/article/make-doc-html.mjs No.004 [--no-meta] [--no-bold] [--plain] [--out path]
 //   --no-meta   : 末尾のメタ情報を付けない
 //   --no-bold   : 結論文の自動太字をしない
-//   --decorate  : 確認用の装飾（色・マーカー）を付ける
+//   --plain     : 装飾（色・マーカー）を付けない
 //   --branch    : 画像 URL のブランチ名（既定: 現在のブランチ）
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
@@ -20,10 +20,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, '../../content/articles/out');
 const args = process.argv.slice(2);
 const no = args.find((a) => /^No\.\d{3}$/.test(a));
-if (!no) { console.error('使い方: node tools/article/make-doc-html.mjs No.004 [--no-meta] [--no-bold] [--decorate] [--out path]'); process.exit(2); }
+if (!no) { console.error('使い方: node tools/article/make-doc-html.mjs No.004 [--no-meta] [--no-bold] [--plain] [--out path]'); process.exit(2); }
 const withMeta = !args.includes('--no-meta');
 const noBold = args.includes('--no-bold');
-const plain = !args.includes('--decorate');
+const plain = args.includes('--plain');
 const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
 const outPath = opt('--out');
 const branch = opt('--branch') || execSync('git rev-parse --abbrev-ref HEAD', { cwd: here }).toString().trim();
@@ -41,9 +41,24 @@ const title = metaLines[0];
 let body = m[2].replace(/<!--[\s\S]*?-->\s*/g, '');
 
 // 1) 結論文の太字化：冒頭の第1段落と、各 H2 直下の第1段落の第1文
+// 第1文の終わり＝「」（）の外にある最初の 。！？
+const firstSentenceEnd = (t) => {
+  let depth = 0;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c === '「' || c === '（' || c === '『') depth++;
+    else if (c === '」' || c === '）' || c === '』') depth = Math.max(0, depth - 1);
+    else if (depth === 0 && (c === '。' || c === '！' || c === '？')) return i + 1;
+  }
+  return -1;
+};
 const boldFirstSentence = (p) => {
   if (/<strong>/.test(p)) return p;
-  return p.replace(/^<p>([^<]*?[。！？])/, (all, s) => `<p><strong>${s}</strong>`);
+  const mm = p.match(/^<p>([^<]*)/);
+  if (!mm) return p;
+  const end = firstSentenceEnd(mm[1]);
+  if (end < 0) return p;
+  return `<p><strong>${mm[1].slice(0, end)}</strong>${p.slice(3 + end)}`;
 };
 if (!noBold) {
   // H2 ごとの区間（冒頭〜最初の H2 も1区間）。区間内にすでに <strong> があれば手動指定を優先して自動太字はしない
