@@ -4,7 +4,7 @@
 //  - 【画像：…】行を、公開リポジトリの raw URL を指す <img> に置き換える（Docs 取り込み時に埋め込まれる）
 //  - 末尾に「掲載用メタ情報」（タイトル・スラッグ・ディスクリプション・FAQ JSON-LD 等）を付ける。
 //    Studio へ貼る Claude in Chrome（tools/aeo/studio-paste-prompt.md）がここを読む。本文には貼らない。
-//  - 既定で装飾あり：H2 はオレンジの帯、太字はマーカー、表ヘッダーは薄オレンジ背景（堀本さん確定 2026-09-16）。
+//  - 既定で装飾あり：H2 はオレンジの帯（下線なし・見出し内に太字を入れない）、太字はマーカー、表ヘッダーは薄オレンジ背景（堀本さん確定 2026-09-16）。
 //    Studio に貼ると色は消え太字だけ残る。Studio 側の見た目はテンプレートで付く（tools/aeo/studio-style-prompt.md）。
 // 使い方: node tools/article/make-doc-html.mjs No.004 [--no-meta] [--no-bold] [--plain] [--out path]
 //   --no-meta   : 末尾のメタ情報を付けない
@@ -97,11 +97,12 @@ body = body.replace(/<p>【画像：([^<]*?)<\/p>/g, (all, cap) => {
 if (!plain) {
   body = body
     .replace(/<strong>([\s\S]*?)<\/strong>/g, `<strong><span style="background-color:${C.marker}">$1</span></strong>`)
-    .replace(/<h2>([\s\S]*?)<\/h2>/g, `<h2 style="color:${C.head}"><span style="background-color:${C.band}"><strong>\u3000$1\u3000</strong></span></h2>`)
-    .replace(/<h3>([\s\S]*?)<\/h3>/g, `<h3 style="color:${C.head}"><strong>$1</strong></h3>`)
+    // 見出しの中に <strong> を入れない：Studio に貼ると見出し内の太字が強調（下線・マーカー）扱いになり、H2 に下線が付く（2026-09-16 堀本さん指摘）
+    .replace(/<h2>([\s\S]*?)<\/h2>/g, `<h2 style="color:${C.head}"><span style="background-color:${C.band}">\u3000$1\u3000</span></h2>`)
+    .replace(/<h3>([\s\S]*?)<\/h3>/g, `<h3 style="color:${C.head}">$1</h3>`)
     .replace(/<th>([\s\S]*?)<\/th>/g, `<th style="background-color:${C.band};text-align:left">$1</th>`);
 } else {
-  body = body.replace(/<h2>([\s\S]*?)<\/h2>/g, '<h2><strong>$1</strong></h2>').replace(/<h3>([\s\S]*?)<\/h3>/g, '<h3><strong>$1</strong></h3>');
+  // --plain でも見出し内に <strong> は入れない（Studio 側で下線が付くため）
 }
 
 // 4) 組み立て（本文 → 区切り線 → 掲載用メタ情報）
