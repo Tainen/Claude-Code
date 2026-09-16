@@ -99,10 +99,7 @@ if (!plain) {
     .replace(/<strong>([\s\S]*?)<\/strong>/g, `<strong><span style="background-color:${C.marker}">$1</span></strong>`)
     .replace(/<h2>([\s\S]*?)<\/h2>/g, `<h2 style="color:${C.head}"><span style="background-color:${C.band}"><strong>\u3000$1\u3000</strong></span></h2>`)
     .replace(/<h3>([\s\S]*?)<\/h3>/g, `<h3 style="color:${C.head}"><strong>$1</strong></h3>`)
-    .replace(/<th>([\s\S]*?)<\/th>/g, `<th style="background-color:${C.band};color:${C.head};font-weight:bold;text-align:left">$1</th>`)
-    .replace(/<td>([\s\S]*?)<\/td>/g, `<td style="color:${C.text}">$1</td>`)
-    .replace(/<p>(?!【)/g, `<p style="color:${C.text}">`)
-    .replace(/<li>/g, `<li style="color:${C.text}">`);
+    .replace(/<th>([\s\S]*?)<\/th>/g, `<th style="background-color:${C.band};text-align:left">$1</th>`);
 } else {
   body = body.replace(/<h2>([\s\S]*?)<\/h2>/g, '<h2><strong>$1</strong></h2>').replace(/<h3>([\s\S]*?)<\/h3>/g, '<h3><strong>$1</strong></h3>');
 }
