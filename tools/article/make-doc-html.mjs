@@ -98,11 +98,15 @@ if (!plain) {
   body = body
     .replace(/<strong>([\s\S]*?)<\/strong>/g, `<strong><span style="background-color:${C.marker}">$1</span></strong>`)
     // 見出しの中に <strong> を入れない：Studio に貼ると見出し内の太字が強調（下線・マーカー）扱いになり、H2 に下線が付く（2026-09-16 堀本さん指摘）
-    .replace(/<h2>([\s\S]*?)<\/h2>/g, `<h2 style="color:${C.head}"><span style="background-color:${C.band}">\u3000$1\u3000</span></h2>`)
-    .replace(/<h3>([\s\S]*?)<\/h3>/g, `<h3 style="color:${C.head}">$1</h3>`)
+    // 見出しは太字にしない（2026-09-18 堀本さん指示。Google Docs の見出しスタイルは既定で太字なので font-weight を明示）
+    .replace(/<h2>([\s\S]*?)<\/h2>/g, `<h2 style="color:${C.head};font-weight:normal"><span style="font-weight:normal;background-color:${C.band}">\u3000$1\u3000</span></h2>`)
+    .replace(/<h3>([\s\S]*?)<\/h3>/g, `<h3 style="color:${C.head};font-weight:normal"><span style="font-weight:normal">$1</span></h3>`)
     .replace(/<th>([\s\S]*?)<\/th>/g, `<th style="background-color:${C.band};text-align:left">$1</th>`);
 } else {
-  // --plain でも見出し内に <strong> は入れない（Studio 側で下線が付くため）
+  // --plain でも見出しは太字にしない
+  body = body
+    .replace(/<h2>([\s\S]*?)<\/h2>/g, '<h2 style="font-weight:normal"><span style="font-weight:normal">$1</span></h2>')
+    .replace(/<h3>([\s\S]*?)<\/h3>/g, '<h3 style="font-weight:normal"><span style="font-weight:normal">$1</span></h3>');
 }
 
 // 4) 組み立て（本文 → 区切り線 → 掲載用メタ情報）
@@ -110,7 +114,7 @@ const parts = [`<html><head><meta charset="utf-8"><title>${esc(title)}</title></
 parts.push(body.trim());
 if (withMeta) {
   parts.push('<hr>');
-  parts.push('<h2>掲載用メタ情報（この区切り線より下は本文に貼らない）</h2>');
+  parts.push('<h2 style="font-weight:normal"><span style="font-weight:normal">掲載用メタ情報（この区切り線より下は本文に貼らない）</span></h2>');
   parts.push(`<p>記事番号：${no}／スラッグ：article-${no.replace('No.', '')}</p>`);
   parts.push(`<p>画像：本文中の${n}枚は Git（content/articles/out/${no}_img1〜${n}.png）と同一。Studio には Doc 内の画像を保存して入れる</p>`);
   parts.push('<p>太字：本文中の太字は Studio でマーカー付きの強調になる箇所。貼り付け後に太字が残っているか確認する</p>');
