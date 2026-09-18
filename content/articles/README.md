@@ -2,6 +2,7 @@
 
 - `.claude/skills/voco-article/SKILL.md` … 記事の作り方（リサーチ→執筆→画像→出力）と品質ルール
 - `content/articles/themes.md` … テーマキュー（上から順に消化。Drive に同じ No. の Doc があればスキップ）
+- `content/articles/knowledge.md` … 堀本さんが Doc 確認の中で書き足した、記事に使う前提のナレッジ。該当テーマの記事を書くときに先に読む
 - `content/articles/prompt-map.md` … AEO（AI検索で引用される記事）の狙う質問文 → 記事の台帳。No.004 以降はこの方針
 - `tools/aeo/HANDOFF.md` … AEO の引き継ぎ（調査済みの事実・決定事項・未対応・外してはいけない点）
 - `tools/article/check-article.mjs` … 出稿前の機械チェック（文字数±10%、段落150字、相対時制、断定語、Studio 貼り付け事故の元 など）
