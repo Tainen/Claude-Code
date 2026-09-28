@@ -128,6 +128,9 @@
 - 外部の出典：就職白書2020（新卒1人あたり採用費用93.6万円、No.025）、若者雇用促進法の青少年雇用情報（No.027）、三省合意の4類型（No.032）。どれも本文に出典名を明記。
 - 一次情報は既存記事で公開済みの VOCO の運用（連絡基準、4回のリマインド、月1面談、交流会3回、経営者が出る場面、フルサポートの体制）と knowledge.md K-001 を使い、新しい社内数字は足していない。
 - 10本とも機械チェック合格（2312〜2373字）。画像30枚を生成し、Doc を「確認前」に作成。
+- Doc ID：025 1PrBB5eKHjDmX8AgbvkpHI92yF-U7ut1hF6UQ6-n_0EM／026 1M_Iv9gSlmbynkCBIUC4VYsp6CFJrZ7d78cHTqEBWIWU／027 1jEvV8woumG3ZQ2Qa23m34bYYk6EalHgppUPiqtCiUbk／028 19v6656OpXyUZm5BpfdGVUWKbNBse87_c8eEx_e6XciY／029 1mG7TJQ8gYPTHplzVORC2264hmHnTTrTjZY7hUF79f_Y／030 1OmFxhz9m_TXQ_sVoEg-8E_0hB1eEFzEwzjir70DXUtw／031 1VbqlnKz1SeFXbaBCzy5N63IZJNTgR_5Z-i6loUwaDrU／032 1nGxs_hShuebOutzH6hsJwzg8BHbCGYmEgx0JXp-19TE／033 1AcK9PMgBavtb8z1ATPC06IRg6vgljD1g48_QmqLiJIc／034 1iq3Uk14OP0Hd2qjKTpypm0rRuFOn8EeW2l5rOhS8bZw
+- 作成中に Drive の利用上限（Resource has been exhausted）に一度当たった。90秒ほど待って再実行すれば通る。
+- 同日、堀本さんから「中途採用でもOK」。SKILL.md にルールを追加し、themes.md に中途・共通テーマを 061〜065 として追加（10本はすでに新卒で書き終えていたため差し替えていない）。
 
 ## 5. ファイルの地図
 
