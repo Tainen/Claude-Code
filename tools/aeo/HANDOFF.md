@@ -191,7 +191,8 @@
 - No.019 の旧 Doc は、タブ2に堀本さんのサイト全体へのメモ（「内容をVOCOに寄せすぎ」「話言葉が多い（例：採用したい・採りたい）」「まとめが箇条書きになっているのがよくない」「まとめを一番下に置き、その上にCVポイント」「お役立ち記事に日付と監修者」「サムネを変更」など）とコメントがあるため、ゴミ箱に入れず「【旧版・タブ2にメモあり】」と名前を変えて残した。メモの各項目は未対応（堀本さんの判断待ち）。
 - 「村上作」の Doc 7本と、10/2 作成の「No.037_採用イベントには誰が出るべき？」にも「採る」系の表現がある（計54か所）。他の方の原稿なので手を入れていない。
 - Google ドキュメントを直接編集するコネクタがこのセッションに無いため、従来どおり作り直し→旧版をゴミ箱、で対応した（Doc のリンクは変わる）。
-- 新しい Doc ID：（作成後に記入）
+- 新しい Doc ID（Drive 上の名前の番号／正本の番号）：No.004（001）1JYn_MVQAOM8lDE4ZYqAT5rVq1J1BfxjTZB2Jh-Hnh2M／No.007 1NmVLJ5p5x1kMVtRRPEvD1-ATTzAjagxRlb6XlsjsnOE／No.008 部活動（008）12XZrllE0LATEV6t51XVsS5j4kxzRq-Zhd8PSSgxzICM／No.008 母集団（009）1ahESHEFK4ULXa-90qNDbdzJI8_vvaXsANIKNhncIDlA／No.010 1dt_O0UvpuWc8E6BxVe-Omq4fER_DSB_r6eKF9g-jwbo／No.016 1h6h3w7IVNGB41tQJuEUOT6i5PDAnP0IZk1XXlDxY1eo／No.019 1ek43xeqM1hhsd1yIQ0ybR7BdQwgyKnXlXKzhpKRchIY（旧版 1e5H2t29wiYeRNYlNQIe6gK9dRtntpZJPkhLGEYb6T4U は改名して残置）／No.009 幹と枝葉（022）1FE3uMcoj8nqkgqwy2mC9Z7gQ8C2cyoO9VLH-5goW-to／No.024 1RtoXFCbHoMJHxt9Ig29NUagkTDuI6Jpj_sj-rCFA3Dk／No.025 17pX-esygmD0PFhYJzfJ6XoP6txLpD8jZybDHr61wnus／No.026 1BRB-VCp66LOWKK9ohXxUU_8Rsy9_fH3nQQIswKM08LQ／No.013 若手社員（033）11lyJOPQz9OwXR-iZEZAIL5ATjyfUcp8i8Xz6NudpeYE／No.034 18SXLMi0ABFvX2kGy148bbsgBdZqZK5o2XR462bZeoSY／No.035 1mBOryf1DvDDmKwCN_1mSrqHb3BgtgBVoKjsd_Jj4iiM／No.036 1jfZmjArY35B46XqRYy_jFrDLVXFxwJHA_scvzknr5mo／No.037 15xlIqc53KNxWTUSmvLRtOkcjY461EvU7v4x_nUaDM58／No.038 1xJ4ATpM6wAb5nqmAw9XnFzHrjoEJTbocGK1-Sc3u3pc（No.039 は変更なし：1kmAN6OjNqLySRTN60N8FJktDdhTRfV6PD6U5uQ1-2qY）。4-17 に書いた No.035〜038 の ID は、この作り直しで上の ID に変わった。
+- 作業中、Drive の create_file が60秒でタイムアウトしても Doc は作られていることがあり、検索に出るまで数分かかる。1件重複ができたのでゴミ箱へ移した。タイムアウト後は数分おいて検索してから作り直すこと。
 
 ## 5. ファイルの地図
 
