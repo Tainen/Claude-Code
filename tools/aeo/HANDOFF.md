@@ -178,6 +178,7 @@
 - 外部の出典：No.035 キャリタスリサーチ「採用ホームページに関する調査」（個別企業のホームページが有益な情報源の上位）。No.036 マイナビ「2027年卒大学生就職意識調査」（安定している会社55.4%・8年連続最多、給料の良い会社26.6%・5年連続増で初めて「やりたい仕事」を上回る、行きたくない会社はノルマのきつそうな会社が最多、転勤の多い会社は6年連続増）。No.039 厚生労働省「公正な採用選考」（就職差別につながるおそれがある14事項。kouseisaiyou.mhlw.go.jp と jsite.mhlw.go.jp は取得できず、検索結果の労働局資料の要約で確認。⑬は文言未確認のため書いていない。男女雇用機会均等法の指針の記述も一般的な内容にとどめた）。
 - 画像：`make-image-gemini.mjs` に `--detail`（英文の具体的な場面）を追加。`make-images-from-article.mjs` は正本の先頭コメントの `画像の場面指示（英語）：1枚目／2枚目／3枚目` を読み、各画像に渡す。`--only 1,3` で一部だけ作り直せる。SKILL.md に使い方を追記。15枚中4枚を作り直した（No.036 img1 と No.038 img1・img2 は看板・手書きに文字のようなものが入った。No.037 img2 は学生が写らず場面がずれた）。
 - 文字数：No.035 2421字／No.036 2442字／No.037 2457字／No.038 2395字／No.039 2426字。すべて合格。
+- Doc（確認前フォルダ）：No.035 1idiqivo_voyI6QX-ZBZGNxZtEhG1SluzcTf99IfB0-s／No.036 1vMU-1LDwZ-8pfu1cR5GCkPbHCAdKKrCgM06Xqd09bDk／No.037 1HM0iZuNBQ-cvBh3M1t6dOR4jgA_qq_I9IJ5I1lX6Dws／No.038 1ROmxE28iaiu1TrUexFpgYvmjKp6j-b9NEnmaAnPQfN0／No.039 1kmAN6OjNqLySRTN60N8FJktDdhTRfV6PD6U5uQ1-2qY。名前は「No.035_タイトル」の形。堀本さんが掲載順で番号を振り直す可能性があるので、以後もタイトルの語で検索する。
 - themes.md：035〜039 を新しい5本に。旧042・043 を繰り上げ、旧036〜038 は 066〜068 へ移動。prompt-map.md に第5週の表を追加。knowledge.md の K-004・K-005 の使用先を更新。
 
 ## 5. ファイルの地図
