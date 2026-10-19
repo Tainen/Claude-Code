@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // 記事中画像を Gemini API で生成する（GEMINI_API_KEY が設定されている環境でのみ動作）
-// 使い方: node tools/article/make-image-gemini.mjs --scene interview --caption "..." --out No.001_img1.png [--model gemini-2.5-flash-image] [--aspect 16:9]
+// 使い方: node tools/article/make-image-gemini.mjs --scene interview --caption "..." --out No.001_img1.png [--detail "English scene"] [--model gemini-2.5-flash-image] [--aspect 16:9]
+// --detail: 記事の内容に合わせた具体的な場面（英語）。指定するとシーン名の定型文より優先して使う（2026-10-19 堀本さん「画像をより記事の内容に沿ったものに」）。
 // scene: meeting | briefing | interview | event | onboarding | desk | group | report
 // 失敗時は非0終了。呼び出し側はプレースホルダー（【画像：…】）を残して報告すること。
 import { writeFileSync } from 'node:fs';
@@ -27,7 +28,7 @@ const SCENES = {
   group: 'a small-group career talk at a Japanese university meeting room, one company recruiter in business attire sitting at a round table with four university students (some in team tracksuits, some in dark suits), relaxed conversation, printed handouts on the table',
   report: 'a Japanese small company meeting room, a recruiting staff member standing and showing a one-page sheet of event results to the company president who is seated and listening, whiteboard behind them',
 };
-const scene = SCENES[args.scene] || SCENES.meeting;
+const scene = args.detail && args.detail !== 'true' ? `${args.detail} (setting: Japanese company or Japanese university, real business context)` : (SCENES[args.scene] || SCENES.meeting);
 const caption = args.caption || '';
 const model = args.model || 'gemini-2.5-flash-image';
 const out = args.out || 'image.png';

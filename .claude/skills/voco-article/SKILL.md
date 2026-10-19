@@ -83,6 +83,8 @@ description: 株式会社VOCO（新卒採用コンサル・採用代行/RPO・�
 - `GEMINI_API_KEY` がある場合：`node tools/article/make-image-gemini.mjs --scene interview --caption "<キャプション>" --out content/articles/out/No.xxx_img1.png` を 3 回。失敗したら下のイラストにフォールバックし、報告に書く。
 - `GEMINI_API_KEY` が無い場合：`node tools/article/make-scene.mjs --scene interview --out content/articles/out/No.xxx_img1.png` を 3 回（ブランド配色のフラットイラスト。写真が用意できるまでの暫定）。
 - 本文の「【画像：シーン名】」のシーン名は `meeting/briefing/interview/event/onboarding/desk` の英語名も併記する（例：【画像：会議 meeting】）。3枚は同じシーンを重複させない。
+- 記事の内容に沿った画像にする（2026-10-19 堀本さん指示）。正本の先頭コメントに `画像の場面指示（英語）：1枚目／2枚目／3枚目` を書く（全角スラッシュ区切り、英文で具体的な人物・行動・小道具を指定）。`make-images-from-article.mjs` がこれを各画像の `--detail` として渡し、シーン名の定型文より優先する。1枚だけ作り直すときは `--only 2` のように番号を指定する。
+- 看板・資料・ホワイトボード・画面は文字が写り込みやすい。場面指示で「blank」「only colored shapes」「blurred」などと指定し、生成後は必ず目で確かめて、文字のようなものが入っていたら作り直す。
 - 画像内に文字・ロゴ・実在人物を思わせる表現を入れない。生成画像は `SendUserFile` でチャットにも添付する。
 - カバー画像（メイン）は堀本さんが自作する。依頼されたときだけ `make-cover.mjs` を使う。
 
@@ -108,6 +110,7 @@ node tools/article/check-article.mjs content/articles/out/No.xxx_article.html --
 
 ## 7分類（カテゴリ）
 1 新卒採用の基本・進め方／2 採用イベント・合同説明会／3 母集団形成・学生との接点／4 会社説明会・採用資料・伝え方／5 内定者フォロー・辞退防止／6 採用体制・採用代行の選び方／7 地方・中小企業の採用
+- HP には上記に加えて、記事を増やしたいカテゴリがある（2026-10-19 堀本さん指示）：採用広報・ブランディング／学生理解・市場動向／採用体制・組織づくり／採用ツール・効率化／採用の振り返り・数値管理／法令・ルール。これらの記事はカテゴリ欄にこの名前をそのまま書く。
 
 ## Studio へ貼るときの手順（堀本さん向け）
 基本は Claude in Chrome に任せる：Studio の CMS を開き、`tools/aeo/studio-paste-prompt.md` の本文を貼って、1行目に Doc の URL を入れる。下書き保存まで自動。人はプレビュー確認と公開ボタンだけ。手で行う場合は以下。
