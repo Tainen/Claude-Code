@@ -194,6 +194,15 @@
 - 新しい Doc ID（Drive 上の名前の番号／正本の番号）：No.004（001）1JYn_MVQAOM8lDE4ZYqAT5rVq1J1BfxjTZB2Jh-Hnh2M／No.007 1NmVLJ5p5x1kMVtRRPEvD1-ATTzAjagxRlb6XlsjsnOE／No.008 部活動（008）12XZrllE0LATEV6t51XVsS5j4kxzRq-Zhd8PSSgxzICM／No.008 母集団（009）1ahESHEFK4ULXa-90qNDbdzJI8_vvaXsANIKNhncIDlA／No.010 1dt_O0UvpuWc8E6BxVe-Omq4fER_DSB_r6eKF9g-jwbo／No.016 1h6h3w7IVNGB41tQJuEUOT6i5PDAnP0IZk1XXlDxY1eo／No.019 1ek43xeqM1hhsd1yIQ0ybR7BdQwgyKnXlXKzhpKRchIY（旧版 1e5H2t29wiYeRNYlNQIe6gK9dRtntpZJPkhLGEYb6T4U は改名して残置）／No.009 幹と枝葉（022）1FE3uMcoj8nqkgqwy2mC9Z7gQ8C2cyoO9VLH-5goW-to／No.024 1RtoXFCbHoMJHxt9Ig29NUagkTDuI6Jpj_sj-rCFA3Dk／No.025 17pX-esygmD0PFhYJzfJ6XoP6txLpD8jZybDHr61wnus／No.026 1BRB-VCp66LOWKK9ohXxUU_8Rsy9_fH3nQQIswKM08LQ／No.013 若手社員（033）11lyJOPQz9OwXR-iZEZAIL5ATjyfUcp8i8Xz6NudpeYE／No.034 18SXLMi0ABFvX2kGy148bbsgBdZqZK5o2XR462bZeoSY／No.035 1mBOryf1DvDDmKwCN_1mSrqHb3BgtgBVoKjsd_Jj4iiM／No.036 1jfZmjArY35B46XqRYy_jFrDLVXFxwJHA_scvzknr5mo／No.037 15xlIqc53KNxWTUSmvLRtOkcjY461EvU7v4x_nUaDM58／No.038 1xJ4ATpM6wAb5nqmAw9XnFzHrjoEJTbocGK1-Sc3u3pc（No.039 は変更なし：1kmAN6OjNqLySRTN60N8FJktDdhTRfV6PD6U5uQ1-2qY）。4-17 に書いた No.035〜038 の ID は、この作り直しで上の ID に変わった。
 - 作業中、Drive の create_file が60秒でタイムアウトしても Doc は作られていることがあり、検索に出るまで数分かかる。1件重複ができたのでゴミ箱へ移した。タイムアウト後は数分おいて検索してから作り直すこと。
 
+### 4-19. 2026-10-21 No.040〜045 の6本を作成（追加5本＋早期化の1本）
+
+- 堀本さん指示：追加で5本。あわせて「早期化に絶対に合わせなければいけないのか。早く動いているのは大手で、外資系が流れを作り、大手が優秀な学生を採用するために追随している。採用ターゲットが高学歴層や超優秀層に限らないなら急ぐ必要はなく、大手と競合して採用コストがかさむリスクもある」という記事を1本（音声入力と思われる「有償な額」は「優秀な学生」、「語学歴」は「高学歴」と解釈した）。
+- 6本：No.040 早期化（学生理解・市場動向）／No.041 採用ブランディング（採用広報・ブランディング）／No.042 定例ミーティング（採用体制・組織づくり）／No.043 日程調整（採用ツール・効率化）／No.044 振り返り（採用の振り返り・数値管理）／No.045 労働条件明示の「変更の範囲」（法令・ルール）。
+- 外部の出典：No.040 キャリタス「2026年卒・新卒採用に関する企業調査（採用方針調査）」2025年2月（プレ期の内定出し開始 全体約4割・大手5割近く。検索結果に引用された PDF の文言で確認、career-tasu.co.jp は取得不可）、就職みらい研究所（26卒 3/1 内定率48.4%）、政府の日程（要請で拘束力なし）。No.045 厚生労働省リーフレット（2024年4月の改正。mhlw.go.jp は取得できず、労働局・自治体の案内と検索結果で確認）。
+- 文字数：No.040 2742字／No.041 2367字／No.042 2402字／No.043 2321字／No.044 2413字／No.045 2389字。すべて合格。「採用したい」は堀本さんのメモ（話言葉）に配慮し、できるだけ使わない書き方にした。
+- 画像：18枚中4枚を作り直し（No.040 img1 はカレンダーの数字と文字、img2 はスクリーンの文字、No.044 img1 はノートパソコンのロゴ×2回）。
+- themes.md：040〜045 を新しい6本に。旧040（採用代行の料金相場）・旧044（完遂力）は 069・070 へ移動。prompt-map.md に第6週の表、knowledge.md に K-007 を追加。
+
 ## 5. ファイルの地図
 
 - `content/articles/out/No.xxx_article.html` … 記事の正本（先頭コメントにタイトル／メタ／狙うプロンプト／H2 一覧／画像位置／表・FAQ・著者の注記／FAQPage JSON-LD）
