@@ -201,6 +201,7 @@
 - 外部の出典：No.040 キャリタス「2026年卒・新卒採用に関する企業調査（採用方針調査）」2025年2月（プレ期の内定出し開始 全体約4割・大手5割近く。検索結果に引用された PDF の文言で確認、career-tasu.co.jp は取得不可）、就職みらい研究所（26卒 3/1 内定率48.4%）、政府の日程（要請で拘束力なし）。No.045 厚生労働省リーフレット（2024年4月の改正。mhlw.go.jp は取得できず、労働局・自治体の案内と検索結果で確認）。
 - 文字数：No.040 2743字／No.041 2367字／No.042 2402字／No.043 2321字／No.044 2413字／No.045 2389字。すべて合格。「採用したい」は堀本さんのメモ（話言葉）に配慮し、できるだけ使わない書き方にした。
 - 画像：18枚中4枚を作り直し（No.040 img1 はカレンダーの数字と文字、img2 はスクリーンの文字、No.044 img1 はノートパソコンのロゴ×2回）。
+- Doc（確認前フォルダ）：No.040 1RfvAdcXy7BtTdLjqQwgP_JcVps5FmksFdMc33FToa5s／No.041 1zy256Me_fchQEs55sbLsfG57EVHvFNsphqBDFrVtv1Y／No.042 1EIzoSBQdnX4hrjKD4mAQQ-nj0oteM5AxoGQzBmpsNqQ／No.043 1mR_c054RXmzIVCFnImd9kR11RFR1tl-zTd2qRcAXvKA／No.044 1wBHnMY-Chem_jXl7ZuxioqriY37fDH3Z6fqxGTItfsg／No.045 16NUXs2BLHdtjP3uh2IvjTcKZPvBqZHRZYaADe4pMq2g
 - themes.md：040〜045 を新しい6本に。旧040（採用代行の料金相場）・旧044（完遂力）は 069・070 へ移動。prompt-map.md に第6週の表、knowledge.md に K-007 を追加。
 
 ## 5. ファイルの地図
