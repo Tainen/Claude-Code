@@ -20,9 +20,13 @@ for by in ['g','sreg']:
     print('== flags by',by); print((t.assign(**{c:(t[c]*100).round(1) for c in ['pub','ind_undec','job_undec','local']})).to_string())
 print('total pub',round(std.pub.mean()*100,1),'local',round(df.local.dropna().astype(float).mean()*100,1),'N std',len(std))
 # industries by grade top
-ind=std[['g','industry']].dropna().copy(); ind['industry']=ind.industry.astype(str).str.split(r',\s*'); ind=ind.explode('industry')
+ind=std[['g','industry']].dropna().copy(); ind['industry']=ind.industry.astype(str).str.split(r',\s*'); ind=ind.explode('industry').reset_index(drop=True)
 t=pd.crosstab(ind.industry,ind.g); n=std.groupby('g').size()
 print((t.div(n,axis=1)*100).round(1).sort_values(1.0,ascending=False).head(12).to_string())
-ind=std[['sreg','industry']].dropna().copy(); ind['industry']=ind.industry.astype(str).str.split(r',\s*'); ind=ind.explode('industry')
+ind=std[['sreg','industry']].dropna().copy(); ind['industry']=ind.industry.astype(str).str.split(r',\s*'); ind=ind.explode('industry').reset_index(drop=True)
 t=pd.crosstab(ind.industry,ind.sreg); n=std.groupby('sreg').size()
 print((t.div(n,axis=1)*100).round(1).sort_values('東海',ascending=False).head(12).to_string())
+# 部活動で培った強み（2つ選択）。全体の割合は、学年が分からない回答も含めた len(std) で割る
+# （学年別の表から全体を出すと学年のない行が落ち、割合が小さく出る。No.046 で一度この誤りがあった）
+st=std['strength'].dropna().astype(str).str.split(r',\s*').explode().str.strip()
+print('== strength (all)'); print((st.value_counts()/len(std)*100).round(1).to_string())
