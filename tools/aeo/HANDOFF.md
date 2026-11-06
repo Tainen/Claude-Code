@@ -269,12 +269,19 @@
 
 セッションのネットワーク許可に voco.co.jp が追加され、curl で生HTMLを取得できるようになったため、2 節の「調査で判明している事実」1〜3 を実測し直した。**1 と 3 は未改善のまま、サイトの構成だけが変わっている。**
 
-### 5-1. お役立ち記事はサイト上に1本も公開されていない（2 節 3 の再確認）
+### 5-1.【訂正あり】お役立ち記事の公開状況
 
-- `sitemap-static.xml` の12URL：`/` `/service/consulting` `/service/presentation` `/case` `/company` `/member` `/download` `/download/document-a` `/sustainability-dark` `/case-list` `/event-list` `/news-list`。**`/column` も、お役立ち記事に相当するページも無い。**
-- 動的サイトマップは `case/consulting` `case/works` `case/event` `news` `member` の5モデルのみ。**お役立ち記事の CMS モデルがサイトマップに存在しない。**
-- `/column/article-008` は HTTP 200 を返すが、存在しない `/column/zzz-does-not-exist` との差分は og:url とバナーリンクのURL文字列だけ。本文の語（部活動／体育会／グループ面談／接触単価）は0件。**SPA の404フォールバック。**
-- Git 上の正本46本に対し、公開は0本。
+**2026-11-06 の初回調査で「お役立ち記事は0本公開」と書いたのは誤り。** `sitemap-static.xml` と `/column` だけを見て判断し、動的サイトマップ `sitemap-dynamic-Y2FzZS9jb25zdWx0aW5nLzpzbHVn.xml`（base64 をデコードすると `case/consulting/:slug`）を開いていなかった。Claude in Chrome の Studio 調査（同日）で判明し、実測で確認した。
+
+実際の状況：
+
+- **お役立ち記事は `/case/consulting/<slug>` で公開されている。** スラッグは `oyakudachi_01` 〜 `oyakudachi_33` 形式。
+- 動的サイトマップに **21 URL** が登録済み。CMS 上は「記事」モデルに 39 件あり、公開中21件・下書き18件。
+- 詳細ページは存在するが、ページ名は「コンサル事例紹介（A社）」で、**事例ページの名前とパスをそのまま記事に流用している**。
+- 一覧ページは `/download`（ページ名「お役立ち資料」）。CMS の繰り返しリストで新しい順に12件＋「もっと見る」。各項目は `/case/consulting/<slug>` に遷移する。本番の `/download` に資料ダウンロードの要素は見当たらず、資料ページは別に `/download/document-a` がある。
+- `/column` は実在しないパスで、404フォールバックが返っていた（これは事実）。
+
+CMS モデルは：記事(39)、メンバー(9)、タグ(4)、イベント開催実績、RPO事例(4)、ニュース(4)、イベント事例(3)。コレクションは「おすすめ記事」。
 
 ### 5-2. 公開済みのニュースは3本
 
@@ -288,7 +295,9 @@
 
 ### 5-3. 生HTMLの状態は9月から改善されていない（2 節 1 の再確認）
 
-`/news/news20260929` の実測（全UA共通、39,041バイト）：
+お役立ち記事 `/case/consulting/oyakudachi_01` の実測（全UA共通、55,077バイト。本文字数16／h1〜h3が0／JSON-LD 0件／title「株式会社VOCO」／description なし／**canonical なし**／og:url が相対値／og:image なし。`<body>` 直下のテキストは実質ゼロで、本文は `<script type="application/json" data-nuxt…>` の中にのみ存在する。「接触単価」は10回出現するがすべてこの JSON 内）。
+
+ニュース `/news/news20260929` も同じ（全UA共通、39,041バイト）：
 
 | 項目 | 値 |
 |---|---|
