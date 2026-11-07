@@ -1,0 +1,15 @@
+{
+  "name": "kobayashi-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VOCO代表 小林さんの事前レビューbot（会議文字起こしから作成）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "express": "^5.2.1"
+  }
+}
