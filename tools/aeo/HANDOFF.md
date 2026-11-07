@@ -403,3 +403,41 @@ JSON-LD は引き続き0件。サポートより、CMSの動的ページでは�
 - 記事スラッグが1本だけ命名規則から外れている（`/case/consulting/IaQ5HFXH`。他は `oyakudachi_01`〜`oyakudachi_33`）。
 - 静的ページの実際の名称は、当初想定と異なっていた。`/case`＝事例・実績、`/service/consulting`＝実働型採用コンサルティング、`/service/presentation`＝採用イベント、`/sustainability-dark`＝VOCO哲学。title はこの実名に合わせてある。
 - `/member` `/case` `/download` は本文に使える地の文が無く、description は未設定（サイト全体の説明文が出ている）。
+
+## 8. 2026-11-07 構造化データ（JSON-LD）を設定
+
+7-2 の残課題4を実施。記事21本・ニュース3本に `Article`、TOP に `Organization` を設定した。設定場所は各ページのページ設定の最下部「構造化データ」で、**用意されたスキーマから選ぶ形式ではなくJSONを自由に書く形式**。プランによる制限は無し。
+
+### 8-1. 実測結果（全36ページ）
+
+| 項目 | 結果 |
+|---|---|
+| JSON-LD あり | 25ページ（記事21・ニュース3・TOP1） |
+| JSON-LD なし | 11ページ（静的ページ。`/` 以外すべて） |
+| JSONとして不正 | **0件** |
+| articleBody に不要データの混入 | **22ページ** |
+| datePublished の1日ずれ | 午前9時より前に公開した記事 |
+
+CMS動的ページで差し込めるプロパティは タイトル／スラッグ／本文／Status／カバー画像／公開日時／最終更新 の7つ。**投稿者は差し込めない**ため author は固定で「株式会社VOCO」とした。日付には「日付をフォーマット」、本文には「見出しを抽出」「タグを除去」の加工を付けられる。「記事」モデルに長文テキストのフィールドは無く、FAQPage を記事ごとに入れることは現状できない。
+
+### 8-2. 要修正の2点
+
+1. **articleBody の73%が不要なデータ。** `/case/consulting/oyakudachi_01` の articleBody は10,049字あるが、`よくある質問` の直後から **7,381字がURLエンコードされたCSS**（本文に埋め込んだFAQアコーディオンの `<style>`。`%3Cstyle%3Ebody%7Bmargin%3A0%3B%7D...`）。「タグを除去」の加工では取り除けていない。しかも本文は「よくある質問」の手前で切れており、記事後半が入っていない。記事21本とニュース1本の計22ページで同じ汚染を検出（222〜272箇所／ページ）。
+   - **対処：articleBody をプロパティごと削除する。** Google のリッチリザルトで articleBody は必須でも推奨でもなく（必須は headline・image・datePublished、推奨は dateModified・author）、新基盤への切り替えで本文はHTMLとして正しく出力されるようになったため、JSON-LD 側で重複させる必要がない。埋め込みHTMLの置き方を見直す案は、21記事すべてに影響するため採らない。
+   - `articleSection`（見出しの抽出）は正しい値が入っているため残す。
+2. **datePublished が1日ずれる。** CMS上 2026/9/16 8:52 公開の記事が `2026-09-15` と出力される。日付の変換がUTCで行われているため、**午前9時より前に公開した記事はすべて前日の日付**になる。
+   - 対処：日付のフォーマットをタイムゾーン付きのISO 8601（`2026-09-16T08:52:00+09:00`）にする。Studio 側で指定できない場合は放置してよい（検索順位への影響は小さい）。運用で回避するなら公開時刻を午前9時以降にする。
+
+修正用プロンプトは `tools/aeo/studio-jsonld-fix-prompt.md`。
+
+### 8-3. 設定内容（記事・ニュース共通）
+
+headline＝タイトル／image＝カバー画像／datePublished＝公開日時／dateModified＝最終更新／author＝固定「株式会社VOCO」（投稿者が差し込めないため）／publisher＝固定「株式会社VOCO」＋ヘッダーのロゴ／articleSection＝本文から見出しを抽出／mainEntityOfPage＝ページURL。
+
+TOP の Organization は `/company` の記載から name・url・logo・address（大阪府／大阪市中央区／本町3-1-10 PMO EX本町 2階）を設定。telephone と sameAs は `/company`・ヘッダー・フッターに記載が無く未設定。**公式SNSのリンクがサイト上に存在しない**ため sameAs が空になっている。
+
+### 8-4. 残っている軽微な点
+
+- 静的ページ11枚に JSON-LD が無い。入れるなら `/company` に Organization、`/service/*` に Service。TOP の Organization と重複させない形にする。優先度は低い。
+- `/news/news20260929` の articleSection に空文字が1つ混入（本文中に空の見出しがあるため）。
+- 構造化データのスイッチを入れると Studio のサンプル（著者名「Studio.Design」など）が初期値で入る。今回は全て書き換え済みで、公開ページにサンプルは残っていない。
