@@ -55,7 +55,7 @@ ANTHROPIC_API_KEY=sk-ant-... BOT_PASSWORD=社内用パスワード npm start   #
 | `KOBAYASHI_BOT_MODEL` | モデル | `claude-opus-5-5` |
 | `KOBAYASHI_BOT_EFFORT` | 思考の深さ `low`〜`max` | `high` |
 
-- system プロンプト（約5〜8万字）は1時間のプロンプトキャッシュに載せているので、2回目以降の問い合わせは安く速くなります。
+- system プロンプト（約13万字）は1時間のプロンプトキャッシュに載せているので、2回目以降の問い合わせは安く速くなります。
 - 安全側の判定で回答が止まった場合に備えて、サーバー側フォールバック（`fallbacks: "default"`）を有効にしています。
 - 会話履歴はサーバーに保存しません（ブラウザを閉じると消えます）。
 
