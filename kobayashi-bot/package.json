@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "export": "node scripts/export.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
