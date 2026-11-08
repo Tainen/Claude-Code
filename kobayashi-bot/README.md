@@ -34,8 +34,8 @@ kobayashi-bot/
 
 ## 使い方 A：サーバーなしで今すぐ使う（Claude のプロジェクト機能）
 
-1. `prompts/system.md` と `knowledge/*.md` を Claude（claude.ai）の「プロジェクト」にナレッジとしてアップロード
-   （または `npm run export` で `dist/kobayashi-bot-instructions.md` を作り、プロジェクトのカスタム指示に貼る）
+1. Googleドライブ「小林bot_知識ファイル」フォルダの `kobayashi-bot-instructions（統合版・Claudeプロジェクト用）.md` を、Claude（claude.ai）の「プロジェクト」にナレッジとしてアップロード
+   （知識を更新した場合は `npm run export` で作り直せます）
 2. プロジェクトを社内メンバーに共有
 3. 会話の最初に「事前レビューして」「壁打ちしたい」「最終チェックして」と書いて使う
 
@@ -70,5 +70,8 @@ ANTHROPIC_API_KEY=sk-ant-... BOT_PASSWORD=社内用パスワード npm start   #
 
 ## 注意
 
-- `knowledge/` には顧客名・料金などの社内情報が含まれます。リポジトリは非公開のまま運用してください。
+- `knowledge/*.md` には顧客名・料金・会議での発言の引用など社内情報が含まれるため、**このリポジトリ（公開）にはコミットしていません**（`.gitignore` で除外）。
+  原本は堀本のGoogleドライブ（マイドライブ）の **「小林bot_知識ファイル」フォルダ** に非公開で保存してあります。
+  サーバーで動かすときは、そのフォルダの4ファイルを `kobayashi-bot/knowledge/` に置いてから `npm start` / `npm run export` してください。
+  同じフォルダにある `kobayashi-bot-instructions（統合版・Claudeプロジェクト用）.md` は、そのまま Claude のプロジェクトに入れれば使えます。
 - 文字起こしは自動変換のため、固有名詞・数字に誤りがある可能性があります（資料内で【推測】【要確認】と表記）。
