@@ -247,7 +247,7 @@
 - 画像3枚（Gemini）。1枚目はタブレットのロゴとジャージのロゴが写り込んだため作り直し。
 - themes.md：旧049「採用ピッチ資料」は 073 に移動。
 - Doc（確認前フォルダ）：`1XdryMZyncjP0rbyEmFy_CGQYFLBQ-c2RxfUnY1g7kh8`。
-- 追加指示（堀本さん）：間に入れる画像は写真ではなくグラフや図に。make-chart.mjs に模式図の型（gap・cards・levels）を足し、No.049_charts.json から図3枚（4秒の沈黙／曲の選び方／場面ごとの音量）を作成。写真3枚は置き換え。Doc は画像を差し替えるため作り直した。
+- 追加指示（堀本さん）：間に入れる画像は写真ではなくグラフや図に。make-chart.mjs に模式図の型（gap・cards・levels）を足し、No.049_charts.json から図3枚（4秒の沈黙／曲の選び方／場面ごとの音量）を作成。写真3枚は置き換え。Doc は画像を差し替えるため作り直した（新 Doc `1uhaQ9tzqAtxYGTlMwvkP5YqqjH2QyyKsDwA0ucc0CzM`。旧 1XdryMZy… はゴミ箱）。raw のブランチ URL は差し替え直後にキャッシュで旧画像を返すため、Doc の画像 URL はコミット SHA で指定した（`make-doc-html.mjs --branch <SHA>`）。
 
 ## 5. ファイルの地図
 
