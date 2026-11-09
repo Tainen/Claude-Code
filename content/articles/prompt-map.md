@@ -117,7 +117,7 @@ AI検索（ChatGPT／Perplexity／Google AI Overviews・AIモード／Claude／G
 
 | No. | タイトル | 層 | 狙うプロンプト | 一次情報・外部の出典 |
 |---|---|---|---|---|
-| 049 | 採用イベントに音楽は必要？ | B/E | 採用イベント BGM／説明会 音楽 流す／イベント BGM 音量 曲 選び方／合同説明会 BGM 必要 | K-008（VOCO のイベントでの音楽の運用）。Koudenburg ほか（4秒の沈黙）、Perham・Currie（歌詞と読解）、Haapakangas ほか（話し声の聞き取りやすさ）、Husain ほか（テンポと覚醒度）、Milliman（テンポと客の動き）、Mehta ほか（70・85dB）、JASRAC FAQ（BGM・サブスク） |
+| 049 | 採用イベントの音楽はどう流すのが正しい？ | B/E | 採用イベント BGM／説明会 音楽 流す／イベント BGM 音量 曲 選び方／合同説明会 BGM 必要／プレゼン中 BGM 必要か | K-008（VOCO の運用と、研究による点検）。Van Engen・Bradlow（母語と外国語の話し声）、Colle・Welsh、Moreno・Mayer（説明中の音楽）、ANSI/ASA S12.60（+15dB）、Hui ほか、May・Hamilton、Kniffin ほか。Koudenburg ほか（4秒の沈黙）、Perham・Currie（歌詞と読解）、Haapakangas ほか（話し声の聞き取りやすさ）、Husain ほか（テンポと覚醒度）、Milliman（テンポと客の動き）、Mehta ほか（70・85dB）、JASRAC FAQ（BGM・サブスク） |
 
 ## 第3週以降の候補（未執筆）
 

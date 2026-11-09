@@ -249,6 +249,14 @@
 - Doc（確認前フォルダ）：`1XdryMZyncjP0rbyEmFy_CGQYFLBQ-c2RxfUnY1g7kh8`。
 - 追加指示（堀本さん）：間に入れる画像は写真ではなくグラフや図に。make-chart.mjs に模式図の型（gap・cards・levels）を足し、No.049_charts.json から図3枚（4秒の沈黙／曲の選び方／場面ごとの音量）を作成。写真3枚は置き換え。Doc は画像を差し替えるため作り直した（新 Doc `1uhaQ9tzqAtxYGTlMwvkP5YqqjH2QyyKsDwA0ucc0CzM`。旧 1XdryMZy… はゴミ箱）。raw のブランチ URL は差し替え直後にキャッシュで旧画像を返すため、Doc の画像 URL はコミット SHA で指定した（`make-doc-html.mjs --branch <SHA>`）。
 
+### 4-25. 2026-11-09 No.049 を「研究で見直した正しい使い方」に作り直し
+
+- 堀本さん指示：VOCO の歌の使い方の紹介でしかないので、他の論文をもとに、VOCO の使い方が合っているかも含めて考え直し、正しいイベントにおける音楽の使い方を作る。
+- 新タイトル：採用イベントの音楽はどう流すのが正しい？｜研究で見直した曲の選び方・音量・場面ごとの使い方（3779字、想定4000字でチェック）。
+- 結論の節に「私たちの運用 × 研究との照合 × 判定」の表。改める2点＝全体に向けた説明は止める、対話の時間は歌のない曲を話し声より十分小さく（K-008 追記）。
+- 追加した出典：Van Engen・Bradlow（JASA）、Colle・Welsh、Moreno・Mayer（J Educ Psychol。PDF で要旨を確認）、ANSI/ASA S12.60（+15dB）、Hui ほか（J Retailing）、May・Hamilton（Motivation and Emotion）、Kniffin ほか（J Organ Behav）。Milliman は外した。
+- 図2（曲の選び方）・図3（場面ごとの使い方。説明は「止める」、対話は「小さく（歌なし）」）を作り直し。図1は据え置き。
+
 ## 5. ファイルの地図
 
 - `content/articles/out/No.xxx_article.html` … 記事の正本（先頭コメントにタイトル／メタ／狙うプロンプト／H2 一覧／画像位置／表・FAQ・著者の注記／FAQPage JSON-LD）

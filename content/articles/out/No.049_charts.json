@@ -7,46 +7,125 @@
       "subtitle": "テーブルでの会話の流れ（説明のための模式図）",
       "seconds": 16,
       "rows": [
-        {"name": "学生A", "segs": [[0, 3.5]]},
-        {"name": "社員", "segs": [[3.8, 7.2]]},
-        {"name": "学生B", "segs": [[11.2, 15.6]]}
+        {
+          "name": "学生A",
+          "segs": [
+            [
+              0,
+              3.5
+            ]
+          ]
+        },
+        {
+          "name": "社員",
+          "segs": [
+            [
+              3.8,
+              7.2
+            ]
+          ]
+        },
+        {
+          "name": "学生B",
+          "segs": [
+            [
+              11.2,
+              15.6
+            ]
+          ]
+        }
       ],
-      "gap": [7.2, 11.2],
+      "gap": [
+        7.2,
+        11.2
+      ],
       "gapLabel": "4秒の沈黙",
-      "music": {"name": "音楽", "label": "音楽が流れていれば、この4秒も無音にならない"},
+      "music": {
+        "name": "音楽",
+        "label": "音楽が流れていれば、この4秒も無音にならない"
+      },
       "takeaway": "研究では、会話に4秒の沈黙が入るだけで、見た人の自信が下がり、拒まれている感覚が強まった",
       "note": "見た人は沈黙に気づいていなかった。学生3〜5名と社員が話すテーブルでは、途切れる瞬間がどうしても生まれる",
       "source": "出典：Koudenburg, Postmes & Gordijn「Disrupting the flow」Journal of Experimental Social Psychology をもとに作成"
     },
     {
       "type": "cards",
-      "title": "曲は「歌詞」と「テンポ」で選ぶ",
-      "subtitle": "採用イベントで流す曲の選び方（VOCO の運用）",
+      "title": "曲は「歌詞」で使い分ける",
+      "subtitle": "場面ごとに流す曲の選び方（研究をもとに整理）",
       "cards": [
-        {"head": "日本語の歌詞の曲", "main": "流さない", "sub": ["学生が意味を読み取れるため、", "話に向けたい注意がそがれる"]},
-        {"head": "洋楽（テンポが速く明るい曲）", "main": "基本はこれ", "sub": ["集合から開始まで・休憩に流し、", "気持ちを高める"], "hl": true},
-        {"head": "歌の入らない曲", "main": "静かな場面に", "sub": ["より静かにしたい時間に使う。", "言葉が注意を引かない"]}
+        {
+          "head": "日本語の歌詞の曲",
+          "main": "流さない",
+          "sub": [
+            "母語の歌詞は意味が入り、",
+            "会話の妨げが最も大きい"
+          ]
+        },
+        {
+          "head": "洋楽（明るく速い曲）",
+          "main": "集合と休憩に",
+          "sub": [
+            "気持ちを高め、場を和ませる。",
+            "外国語の歌詞も妨げにはなる"
+          ],
+          "hl": true
+        },
+        {
+          "head": "歌のない曲",
+          "main": "対話の時間に",
+          "sub": [
+            "言葉が無いので注意を引きにくい。",
+            "話し声より十分小さく流す"
+          ],
+          "hl": true
+        }
       ],
-      "takeaway": "歌詞のある音楽は、歌詞のない音楽や無音より読解の成績を下げた",
-      "note": "話し声は聞き取りやすいほど作業の成績を下げる。テンポは気持ちの高まりに、長調・短調は気分に影響する",
-      "source": "出典：Perham & Currie（Applied Cognitive Psychology）、Haapakangas ほか（Indoor Air）、Husain ほか（Music Perception）をもとに作成"
+      "takeaway": "母語の話し声は、外国語の話し声より聞き取りを妨げた。歌詞のある音楽は読解の成績を下げた",
+      "note": "意味の分からない外国語の話し声でも、聞いた内容を順番に覚える課題の成績は下がる",
+      "source": "出典：Van Engen & Bradlow（JASA）、Perham & Currie（Applied Cognitive Psychology）、Colle & Welsh をもとに作成"
     },
     {
       "type": "levels",
-      "title": "音の大きさは、場面に合わせて変える",
-      "subtitle": "イベントの流れと音の大きさ（VOCO の運用。数値ではなく相対的な大きさ）",
+      "title": "場面ごとの音楽の使い方",
+      "subtitle": "イベントの流れと音の大きさ（数値ではなく相対的な大きさ）",
       "max": 5,
       "items": [
-        {"label": "集合〜\n開始まで", "level": 3, "tag": "やや大きめ"},
-        {"label": "開始直前", "level": 3.6, "tag": "少しずつ上げる", "ramp": true},
-        {"label": "企業が\n話す時間", "level": 1.3, "tag": "小さめ", "hl": true},
-        {"label": "休憩", "level": 3, "tag": "やや大きめ"},
-        {"label": "企業が\n話す時間", "level": 1.3, "tag": "小さめ", "hl": true}
+        {
+          "label": "集合〜\n開始まで",
+          "level": 3,
+          "tag": "やや大きめ"
+        },
+        {
+          "label": "開始直前",
+          "level": 3.6,
+          "tag": "少しずつ上げる",
+          "ramp": true
+        },
+        {
+          "label": "全体に\n向けた説明",
+          "level": 0,
+          "tag": "止める",
+          "hl": true
+        },
+        {
+          "label": "テーブルでの\n対話",
+          "level": 1.1,
+          "tag": "小さく（歌なし）",
+          "hl": true
+        },
+        {
+          "label": "休憩",
+          "level": 3,
+          "tag": "やや大きめ"
+        }
       ],
-      "limit": {"level": 4.3, "label": "上限：隣の人と普通の声で話せる大きさ"},
-      "takeaway": "大きすぎる音は逆効果。研究では、周りの音が70デシベルより85デシベルのとき創造的な課題の成績が下がった",
-      "note": "音量は一気に変えず、数十秒かけて少しずつ上げ下げする",
-      "source": "出典：Mehta, Zhu & Cheema「Is noise always bad?」Journal of Consumer Research、VOCO の採用イベントでの運用"
+      "limit": {
+        "level": 4.3,
+        "label": "上限：隣の人と普通の声で話せる大きさ"
+      },
+      "takeaway": "説明に音楽を重ねると記憶と理解が下がる。対話では話し声を音楽より15デシベル以上大きく",
+      "note": "15デシベルは教室の音響の規格の目安。音は一気に変えず、数十秒かけて少しずつ上げ下げする",
+      "source": "出典：Moreno & Mayer（Journal of Educational Psychology）、ANSI/ASA S12.60、Mehta ほか（Journal of Consumer Research）をもとに作成"
     }
   ]
 }
