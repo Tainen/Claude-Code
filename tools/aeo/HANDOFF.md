@@ -256,6 +256,7 @@
 - 結論の節に「私たちの運用 × 研究との照合 × 判定」の表。改める2点＝全体に向けた説明は止める、対話の時間は歌のない曲を話し声より十分小さく（K-008 追記）。
 - 追加した出典：Van Engen・Bradlow（JASA）、Colle・Welsh、Moreno・Mayer（J Educ Psychol。PDF で要旨を確認）、ANSI/ASA S12.60（+15dB）、Hui ほか（J Retailing）、May・Hamilton（Motivation and Emotion）、Kniffin ほか（J Organ Behav）。Milliman は外した。
 - 図2（曲の選び方）・図3（場面ごとの使い方。説明は「止める」、対話は「小さく（歌なし）」）を作り直し。図1は据え置き。
+- Doc：`19DXe4tIVDZRUM6-dcTUZNMCfQDYy1r7v_KzrHsqtgck`（旧 1uhaQ9tz… はゴミ箱）。
 
 ## 5. ファイルの地図
 
