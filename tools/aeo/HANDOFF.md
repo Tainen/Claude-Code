@@ -257,7 +257,7 @@
 - 追加した出典：Van Engen・Bradlow（JASA）、Colle・Welsh、Moreno・Mayer（J Educ Psychol。PDF で要旨を確認）、ANSI/ASA S12.60（+15dB）、Hui ほか（J Retailing）、May・Hamilton（Motivation and Emotion）、Kniffin ほか（J Organ Behav）。Milliman は外した。
 - 図2（曲の選び方）・図3（場面ごとの使い方。説明は「止める」、対話は「小さく（歌なし）」）を作り直し。図1は据え置き。
 - Doc：`19DXe4tIVDZRUM6-dcTUZNMCfQDYy1r7v_KzrHsqtgck`（旧 1uhaQ9tz… はゴミ箱）。
-- 追加指示（堀本さん）：VOCO の従来の使い方には触れず、研究をもとに VOCO 主催イベントもこの方法で進める旨で着地。導入は「さまざまな分野で使われ方が違うので分析した」から自然に入る。→ 結論の表を「問い×研究で分かったこと×正しい使い方」に差し替え、まとめの後に締めの段落を追加。タイトルを「研究から分析した」に変更（3834字）。
+- 追加指示（堀本さん）：VOCO の従来の使い方には触れず、研究をもとに VOCO 主催イベントもこの方法で進める旨で着地。導入は「さまざまな分野で使われ方が違うので分析した」から自然に入る。→ 結論の表を「問い×研究で分かったこと×正しい使い方」に差し替え、まとめの後に締めの段落を追加。タイトルを「研究から分析した」に変更（3834字）。Doc：`1tf7XduVXrMQ6h7hS4nIcpZ4wb7q3r37cR70cLKe9c3A`（旧 19DXe4tI… はゴミ箱）。
 
 ## 5. ファイルの地図
 
