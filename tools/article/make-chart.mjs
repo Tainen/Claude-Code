@@ -6,6 +6,7 @@
 //   type "hbar"    : 横棒。items [{label, sub?, value, hl?}]。hl=true の棒をオレンジにする
 //   type "line"    : 折れ線。categories [...]、series [{name, values [...], hl?}]（値が null の点は飛ばし、前後を点線でつなぐ）
 //   type "groupbar": 横棒の2本組。categories [...]、series [{name, values [...], hl?}]
+//   図（数値のない模式図）: type "gap"（会話の時間軸と沈黙）／"cards"（横に並ぶ箱）／"levels"（場面ごとの相対的な大きさ）。各関数の注記を参照
 // 出力: content/articles/out/{no}_img{n}.png（2400×1350）
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -113,8 +114,79 @@ function line(c) {
   return s;
 }
 
+// ---- 図（数値のない模式図）。研究や運用を説明する記事で、写真の代わりに入れる ----
+
+// gap: 会話の時間軸。rows [{name, segs:[[start,end],...]}]、gap [start,end]、gapLabel、music {name, label}
+function gap(c) {
+  const x0 = 200, x1 = 1110, top = 160;
+  const sx = (t) => x0 + (x1 - x0) * (t / c.seconds);
+  const rowH = 76;
+  let s = '';
+  const gy0 = top - 8, gy1 = top + rowH * c.rows.length + 4;
+  s += `<rect x="${sx(c.gap[0])}" y="${gy0}" width="${sx(c.gap[1]) - sx(c.gap[0])}" height="${gy1 - gy0}" fill="#fdeee6"/>`;
+  s += `<line x1="${sx(c.gap[0])}" y1="${gy0}" x2="${sx(c.gap[0])}" y2="${gy1}" stroke="${C.accent}" stroke-width="2" stroke-dasharray="6 6"/>`;
+  s += `<line x1="${sx(c.gap[1])}" y1="${gy0}" x2="${sx(c.gap[1])}" y2="${gy1}" stroke="${C.accent}" stroke-width="2" stroke-dasharray="6 6"/>`;
+  s += `<text x="${(sx(c.gap[0]) + sx(c.gap[1])) / 2}" y="${top + (rowH * c.rows.length) / 2 + 8}" font-size="24" font-weight="bold" fill="${C.accent}" text-anchor="middle">${esc(c.gapLabel)}</text>`;
+  c.rows.forEach((r, i) => {
+    const cy = top + rowH * (i + 0.5);
+    s += `<text x="${x0 - 20}" y="${cy + 6}" font-size="18" font-weight="bold" fill="${C.ink}" text-anchor="end">${esc(r.name)}</text>`;
+    s += `<line x1="${x0}" y1="${cy}" x2="${x1}" y2="${cy}" stroke="${C.grid}"/>`;
+    r.segs.forEach(([a, b]) => {
+      s += `<rect x="${sx(a)}" y="${cy - 17}" width="${sx(b) - sx(a)}" height="34" rx="17" fill="${C.gray}"/>`;
+      s += `<text x="${(sx(a) + sx(b)) / 2}" y="${cy + 6}" font-size="16" fill="#fff" font-weight="bold" text-anchor="middle">話す</text>`;
+    });
+  });
+  const my = top + rowH * c.rows.length + 44;
+  s += `<text x="${x0 - 20}" y="${my + 24}" font-size="18" font-weight="bold" fill="${C.accent}" text-anchor="end">${esc(c.music.name)}</text>`;
+  s += `<rect x="${x0}" y="${my}" width="${x1 - x0}" height="40" rx="8" fill="${C.accent}" opacity="0.85"/>`;
+  s += `<text x="${(x0 + x1) / 2}" y="${my + 27}" font-size="18" font-weight="bold" fill="#fff" text-anchor="middle">${esc(c.music.label)}</text>`;
+  return s;
+}
+
+// cards: 横に並ぶ箱。cards [{head, main, sub:[行...], hl?}]
+function cards(c) {
+  const n = c.cards.length, gapW = 28, x0 = 60, x1 = W - 60, top = 150, bottom = 470;
+  const w = (x1 - x0 - gapW * (n - 1)) / n;
+  let s = '';
+  c.cards.forEach((k, i) => {
+    const x = x0 + i * (w + gapW), col = k.hl ? C.accent : C.gray;
+    s += `<rect x="${x}" y="${top}" width="${w}" height="${bottom - top}" rx="12" fill="#fff" stroke="${col}" stroke-width="${k.hl ? 4 : 2}"/>`;
+    s += `<rect x="${x}" y="${top}" width="${w}" height="64" rx="12" fill="${col}"/><rect x="${x}" y="${top + 40}" width="${w}" height="24" fill="${col}"/>`;
+    s += `<text x="${x + w / 2}" y="${top + 41}" font-size="20" font-weight="bold" fill="#fff" text-anchor="middle">${esc(k.head)}</text>`;
+    s += `<text x="${x + w / 2}" y="${top + 150}" font-size="34" font-weight="bold" fill="${k.hl ? C.accent : C.ink}" text-anchor="middle">${esc(k.main)}</text>`;
+    (k.sub || []).forEach((t, j) => { s += `<text x="${x + w / 2}" y="${top + 222 + j * 32}" font-size="18" fill="${C.ink}" text-anchor="middle">${esc(t)}</text>`; });
+  });
+  return s;
+}
+
+// levels: 場面ごとの相対的な大きさ（数値なし）。items [{label, level, tag, ramp?, hl?}]、max、limit {level, label}
+function levels(c) {
+  const x0 = 140, x1 = 1110, top = 150, bottom = 470, max = c.max ?? 5;
+  const sy = (v) => bottom - (bottom - top) * (v / max);
+  const n = c.items.length, w = (x1 - x0) / n;
+  let s = '';
+  s += `<text x="${x0 - 30}" y="${(top + bottom) / 2}" font-size="16" fill="${C.sub}" text-anchor="middle" transform="rotate(-90 ${x0 - 30} ${(top + bottom) / 2})">音の大きさ（大きいほど上）</text>`;
+  c.items.forEach((it, i) => {
+    const x = x0 + i * w + 6, ww = w - 12, col = it.hl ? C.accent : C.gray;
+    if (it.ramp) {
+      const prev = c.items[i - 1]?.level ?? it.level;
+      s += `<polygon points="${x},${bottom} ${x},${sy(prev)} ${x + ww},${sy(it.level)} ${x + ww},${bottom}" fill="${col}"/>`;
+    } else {
+      s += `<rect x="${x}" y="${sy(it.level)}" width="${ww}" height="${bottom - sy(it.level)}" rx="4" fill="${col}"/>`;
+    }
+    s += `<text x="${x + ww / 2}" y="${sy(it.level) - 14}" font-size="19" font-weight="bold" fill="${it.hl ? C.accent : C.ink}" text-anchor="middle">${esc(it.tag)}</text>`;
+    String(it.label).split('\n').forEach((t, j) => { s += `<text x="${x + ww / 2}" y="${bottom + 28 + j * 22}" font-size="17" fill="${C.ink}" text-anchor="middle">${esc(t)}</text>`; });
+  });
+  s += `<line x1="${x0}" y1="${bottom}" x2="${x1}" y2="${bottom}" stroke="${C.axis}"/>`;
+  if (c.limit) {
+    s += `<line x1="${x0}" y1="${sy(c.limit.level)}" x2="${x1}" y2="${sy(c.limit.level)}" stroke="${C.accent}" stroke-width="2" stroke-dasharray="8 6"/>`;
+    s += `<text x="${x1}" y="${sy(c.limit.level) - 10}" font-size="16" font-weight="bold" fill="${C.accent}" text-anchor="end">${esc(c.limit.label)}</text>`;
+  }
+  return s;
+}
+
 function page(c) {
-  const body = c.type === 'hbar' ? hbar(c) : c.type === 'groupbar' ? groupbar(c) : line(c);
+  const body = { hbar, groupbar, gap, cards, levels }[c.type]?.(c) ?? line(c);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="IPAPGothic, IPAGothic, sans-serif">
 <rect width="${W}" height="${H}" fill="#ffffff"/>
 <text x="60" y="66" font-size="32" font-weight="bold" fill="${C.ink}">${esc(c.title)}</text>
