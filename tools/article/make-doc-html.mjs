@@ -7,24 +7,30 @@
 //  - 既定で装飾あり：H2 はオレンジの帯（下線なし・見出し内に太字を入れない）、太字はマーカー、表ヘッダーは薄オレンジ背景（堀本さん確定 2026-09-16）。
 //    Studio に貼ると色は消え太字だけ残る。Studio 側の見た目はテンプレートで付く（tools/aeo/studio-style-prompt.md）。
 // 使い方: node tools/article/make-doc-html.mjs No.004 [--no-meta] [--no-bold] [--plain] [--out path]
+//     または: node tools/article/make-doc-html.mjs --file content/news/news-005_xxx.html --no-img [--out path]
 //   --no-meta   : 末尾のメタ情報を付けない
 //   --no-bold   : 結論文の自動太字をしない
 //   --plain     : 装飾（色・マーカー）を付けない
+//   --file      : 任意の記事HTMLを指定する（ニュース記事など No.xxx 以外に使う）
+//   --no-img    : 【画像：…】行を <img> に置き換えず、プレースホルダーの段落として残す
+//                 （写真を部や取引先から受け取るニュース記事向け。Git に画像が無いため）
 //   --branch    : 画像 URL のブランチ名（既定: 現在のブランチ）
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, '../../content/articles/out');
 const args = process.argv.slice(2);
-const no = args.find((a) => /^No\.\d{3}$/.test(a));
-if (!no) { console.error('使い方: node tools/article/make-doc-html.mjs No.004 [--no-meta] [--no-bold] [--plain] [--out path]'); process.exit(2); }
+const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
+const filePath = opt('--file');
+const no = args.find((a) => /^No\.\d{3}$/.test(a)) || (filePath ? basename(filePath).replace(/(_article)?\.html$/, '') : undefined);
+if (!no) { console.error('使い方: node tools/article/make-doc-html.mjs No.004 [--no-meta] [--no-bold] [--plain] [--out path]\n    または: node tools/article/make-doc-html.mjs --file <path> [--no-img] [--out path]'); process.exit(2); }
 const withMeta = !args.includes('--no-meta');
 const noBold = args.includes('--no-bold');
 const plain = args.includes('--plain');
-const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
+const noImg = args.includes('--no-img');
 const outPath = opt('--out');
 const branch = opt('--branch') || execSync('git rev-parse --abbrev-ref HEAD', { cwd: here }).toString().trim();
 const RAW = `https://raw.githubusercontent.com/Tainen/Claude-Code/${branch}/content/articles/out`;
@@ -33,7 +39,7 @@ const RAW = `https://raw.githubusercontent.com/Tainen/Claude-Code/${branch}/cont
 const C = { band: '#FFF4E8', marker: '#FFD9A8', text: '#333333', head: '#222222', sub: '#6B6B6B', line: '#E6E6E6' };
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-const src = readFileSync(resolve(OUT, `${no}_article.html`), 'utf8');
+const src = readFileSync(filePath ? resolve(process.cwd(), filePath) : resolve(OUT, `${no}_article.html`), 'utf8');
 const m = src.match(/^\s*<!--([\s\S]*?)-->\s*([\s\S]*)$/);
 if (!m) { console.error(`${no}: 先頭のメタ情報コメントが見つかりません`); process.exit(1); }
 const metaLines = m[1].trim().split('\n').map((l) => l.trim()).filter(Boolean);
@@ -90,6 +96,10 @@ let n = 0;
 body = body.replace(/<p>【画像：([^<]*?)<\/p>/g, (all, cap) => {
   n++;
   const capStyle = plain ? '' : ` style="color:${C.sub};font-size:10pt;text-align:center"`;
+  if (noImg) {
+    const box = plain ? '' : ` style="background-color:${C.band};color:${C.sub};text-align:center;padding:12px"`;
+    return `<p${box}>［ここに画像${n}を入れる］</p><p${capStyle}>【画像${n}：${cap}</p>`;
+  }
   return `<img src="${RAW}/${no}_img${n}.png" width="600"><p${capStyle}>【画像${n}：${cap}（ファイル：${no}_img${n}.png）</p>`;
 });
 
@@ -115,8 +125,10 @@ parts.push(body.trim());
 if (withMeta) {
   parts.push('<hr>');
   parts.push('<h2 style="font-weight:normal"><span style="font-weight:normal">掲載用メタ情報（この区切り線より下は本文に貼らない）</span></h2>');
-  parts.push(`<p>記事番号：${no}／スラッグ：article-${no.replace('No.', '')}</p>`);
-  parts.push(`<p>画像：本文中の${n}枚は Git（content/articles/out/${no}_img1〜${n}.png）と同一。Studio には Doc 内の画像を保存して入れる</p>`);
+  parts.push(filePath ? `<p>正本：${filePath}</p>` : `<p>記事番号：${no}／スラッグ：article-${no.replace('No.', '')}</p>`);
+  parts.push(noImg
+    ? `<p>画像：本文中の${n}か所は差し込み位置の指定のみ。写真を用意して Studio で挿入する</p>`
+    : `<p>画像：本文中の${n}枚は Git（content/articles/out/${no}_img1〜${n}.png）と同一。Studio には Doc 内の画像を保存して入れる</p>`);
   parts.push('<p>太字：本文中の太字は Studio でマーカー付きの強調になる箇所。貼り付け後に太字が残っているか確認する</p>');
   for (const l of metaLines.slice(1)) parts.push(`<p>${esc(l)}</p>`);
 }
