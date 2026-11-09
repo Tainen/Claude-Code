@@ -239,6 +239,14 @@
 - 字数は網羅型のため想定3500字でチェック（2500字の既定より長い）。
 - 旧 Doc（1jYeyDo8…・1_Y1L_wQ…）は堀本さんの編集が無いことを確かめてゴミ箱へ移し、新しく作成した。新 Doc：No.047 `1JoRIaYCy9Gw-hkCSYWKYUfBxlP72bb2lr1AAWS58E_Q`、No.048 `1WHEn_wV6NHtkh3OSDEjRs-1UPU85OAkPu6JFlvzFwHM`。
 
+### 4-24. 2026-11-09 No.049 採用イベントの音楽（堀本さん指定テーマ）
+
+- 堀本さん指示：採用イベントにおける音楽の重要性。研究をもとに、必要性・曲調・場面ごとの音量・その他の注意点をまとめる。VOCO の運用は K-008 に記録。
+- No.049（3664字、想定4000字でチェック）：採用イベントに音楽は必要？｜曲調・音量・場面ごとの流し方を研究と現場の運用から解説。カテゴリ2。
+- 出典：Koudenburg ほか（JESP、4秒の沈黙）、Perham・Currie（Applied Cognitive Psychology）、Haapakangas・Hongisto・Liebl（Indoor Air）、Husain・Thompson・Schellenberg（Music Perception）、Milliman（Journal of Marketing）、Mehta・Zhu・Cheema（JCR）、JASRAC FAQ。
+- 画像3枚（Gemini）。1枚目はタブレットのロゴとジャージのロゴが写り込んだため作り直し。
+- themes.md：旧049「採用ピッチ資料」は 073 に移動。
+
 ## 5. ファイルの地図
 
 - `content/articles/out/No.xxx_article.html` … 記事の正本（先頭コメントにタイトル／メタ／狙うプロンプト／H2 一覧／画像位置／表・FAQ・著者の注記／FAQPage JSON-LD）
