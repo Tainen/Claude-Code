@@ -246,6 +246,7 @@
 - 出典：Koudenburg ほか（JESP、4秒の沈黙）、Perham・Currie（Applied Cognitive Psychology）、Haapakangas・Hongisto・Liebl（Indoor Air）、Husain・Thompson・Schellenberg（Music Perception）、Milliman（Journal of Marketing）、Mehta・Zhu・Cheema（JCR）、JASRAC FAQ。
 - 画像3枚（Gemini）。1枚目はタブレットのロゴとジャージのロゴが写り込んだため作り直し。
 - themes.md：旧049「採用ピッチ資料」は 073 に移動。
+- Doc（確認前フォルダ）：`1XdryMZyncjP0rbyEmFy_CGQYFLBQ-c2RxfUnY1g7kh8`。
 
 ## 5. ファイルの地図
 
